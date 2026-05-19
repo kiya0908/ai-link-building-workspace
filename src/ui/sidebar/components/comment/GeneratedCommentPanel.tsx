@@ -13,13 +13,18 @@ export function GeneratedCommentPanel({ commentState }: GeneratedCommentPanelPro
       ) : null}
       <textarea
         className="ai-link-comment-box"
-        value={commentState.isGenerating ? 'Generating placeholder comment...' : commentState.draft}
+        value={commentState.isGenerating ? 'Generating comment...' : commentState.draft}
         readOnly
       />
       <div className="ai-link-comment-meta">
         <span>{commentState.style}</span>
         <span>{commentState.mode}</span>
+        {commentState.model ? <span>{commentState.model}</span> : null}
+        {commentState.tokenUsage ? <span>{commentState.tokenUsage.totalTokens} tokens</span> : null}
       </div>
+      {commentState.validationIssues.length > 0 ? (
+        <div className="ai-link-alert">Review: {commentState.validationIssues.join(', ')}</div>
+      ) : null}
     </WorkspacePanel>
   );
 }

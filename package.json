@@ -8,7 +8,7 @@
     "build": "wxt build",
     "zip": "wxt zip",
     "test": "node --test tests/*.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "wxt prepare && tsc --noEmit"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",

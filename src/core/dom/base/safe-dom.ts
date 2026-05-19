@@ -37,6 +37,26 @@ export function setElementValue(element: HTMLElement | null, value: string): voi
   }
 }
 
+export function isEditableCommentElement(element: Element | null): element is HTMLElement {
+  return Boolean(
+    element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLInputElement ||
+      (element instanceof HTMLElement && element.isContentEditable)
+  );
+}
+
+export function getAccessibleFrameDocuments(document: Document): Document[] {
+  return Array.from(document.querySelectorAll('iframe'))
+    .map((frame) => {
+      try {
+        return frame.contentDocument;
+      } catch {
+        return null;
+      }
+    })
+    .filter((frameDocument): frameDocument is Document => frameDocument !== null);
+}
+
 export function highlightElement(element: HTMLElement | null): void {
   if (!element) {
     return;

@@ -2,9 +2,11 @@ import type {
   CommentFormFields,
   CommentProvider,
   CommentProviderFactory,
+  ProviderCreateOptions,
   ProviderDetectionResult
 } from '@/core/dom/comment-provider';
 import {
+  getAccessibleFrameDocuments,
   highlightElement,
   safeQuery,
   safeQueryInput,
@@ -15,10 +17,19 @@ import {
 export class WordPressProvider implements CommentProvider {
   readonly id = 'wordpress';
 
-  constructor(private readonly document: Document) {}
+  constructor(
+    private readonly document: Document,
+    private readonly options: ProviderCreateOptions = {}
+  ) {}
 
   detect(): boolean {
-    return this.getConfidence() >= 50;
+    const confidence = this.getConfidence();
+    const detected = confidence >= 50;
+    this.options.logger?.debug('WordPress provider detection complete.', {
+      detected,
+      confidence
+    });
+    return detected;
   }
 
   getConfidence(): number {
@@ -32,7 +43,7 @@ export class WordPressProvider implements CommentProvider {
   }
 
   getCommentBox(): HTMLElement | null {
-    return safeQuery<HTMLElement>(this.document, [
+    return this.queryAcrossAccessibleDocuments<HTMLElement>([
       '#commentform textarea#comment',
       '#respond textarea#comment',
       'textarea[name="comment"]'
@@ -40,19 +51,19 @@ export class WordPressProvider implements CommentProvider {
   }
 
   getNameInput(): HTMLInputElement | null {
-    return safeQueryInput(this.document, ['#commentform input#author', 'input[name="author"]']);
+    return this.queryInputAcrossAccessibleDocuments(['#commentform input#author', 'input[name="author"]']);
   }
 
   getEmailInput(): HTMLInputElement | null {
-    return safeQueryInput(this.document, ['#commentform input#email', 'input[name="email"]']);
+    return this.queryInputAcrossAccessibleDocuments(['#commentform input#email', 'input[name="email"]']);
   }
 
   getWebsiteInput(): HTMLInputElement | null {
-    return safeQueryInput(this.document, ['#commentform input#url', 'input[name="url"]']);
+    return this.queryInputAcrossAccessibleDocuments(['#commentform input#url', 'input[name="url"]']);
   }
 
   getSubmitButton(): HTMLElement | null {
-    return safeQuery<HTMLElement>(this.document, [
+    return this.queryAcrossAccessibleDocuments<HTMLElement>([
       '#commentform input#submit',
       '#commentform button[type="submit"]',
       '#respond input[type="submit"]'
@@ -60,6 +71,7 @@ export class WordPressProvider implements CommentProvider {
   }
 
   fillFields(fields: CommentFormFields): void {
+    this.options.logger?.debug('WordPress provider filling comment fields.');
     this.fillComment(fields.comment);
     setElementValue(this.getNameInput(), fields.name ?? '');
     setElementValue(this.getEmailInput(), fields.email ?? '');
@@ -82,13 +94,44 @@ export class WordPressProvider implements CommentProvider {
       providerId: this.id,
       detected: this.detect(),
       confidence: this.getConfidence(),
-      reason: 'WordPress commentform/respond/wp- structure scan.'
+      reason: 'WordPress commentform/respond/wp- structure scan.',
+      capabilities: {
+        iframeReady: true,
+        contentEditableReady: false,
+        dynamicPageReady: true
+      }
     };
+  }
+
+  private queryInputAcrossAccessibleDocuments(selectors: string[]): HTMLInputElement | null {
+    for (const candidateDocument of this.getCandidateDocuments()) {
+      const input = safeQueryInput(candidateDocument, selectors);
+      if (input) {
+        return input;
+      }
+    }
+
+    return null;
+  }
+
+  private queryAcrossAccessibleDocuments<TElement extends HTMLElement>(selectors: string[]): TElement | null {
+    for (const candidateDocument of this.getCandidateDocuments()) {
+      const element = safeQuery<TElement>(candidateDocument, selectors);
+      if (element) {
+        return element;
+      }
+    }
+
+    return null;
+  }
+
+  private getCandidateDocuments(): Document[] {
+    return [this.document, ...getAccessibleFrameDocuments(this.document)];
   }
 }
 
 export const wordpressProviderFactory: CommentProviderFactory = {
-  create(document) {
-    return new WordPressProvider(document);
+  create(document, _learnedRecord, options) {
+    return new WordPressProvider(document, options);
   }
 };

@@ -2,10 +2,13 @@ import type {
   CommentFormFields,
   CommentProvider,
   CommentProviderFactory,
+  ProviderCreateOptions,
   ProviderDetectionResult
 } from '@/core/dom/comment-provider';
 import {
+  getAccessibleFrameDocuments,
   highlightElement,
+  isEditableCommentElement,
   safeQuery,
   safeQueryInput,
   scrollElementIntoView,
@@ -33,10 +36,18 @@ const SUBMIT_SELECTORS = [
 export class GenericProvider implements CommentProvider {
   readonly id = 'generic';
 
-  constructor(private readonly document: Document) {}
+  constructor(
+    private readonly document: Document,
+    private readonly options: ProviderCreateOptions = {}
+  ) {}
 
   detect(): boolean {
-    return this.getCommentBox() !== null;
+    const detected = this.getCommentBox() !== null;
+    this.options.logger?.debug('Generic provider detection complete.', {
+      detected,
+      confidence: this.getConfidence()
+    });
+    return detected;
   }
 
   getConfidence(): number {
@@ -49,26 +60,27 @@ export class GenericProvider implements CommentProvider {
   }
 
   getCommentBox(): HTMLElement | null {
-    return safeQuery<HTMLElement>(this.document, COMMENT_SELECTORS);
+    return this.queryAcrossAccessibleDocuments<HTMLElement>(COMMENT_SELECTORS, isEditableCommentElement);
   }
 
   getNameInput(): HTMLInputElement | null {
-    return safeQueryInput(this.document, NAME_SELECTORS);
+    return this.queryInputAcrossAccessibleDocuments(NAME_SELECTORS);
   }
 
   getEmailInput(): HTMLInputElement | null {
-    return safeQueryInput(this.document, EMAIL_SELECTORS);
+    return this.queryInputAcrossAccessibleDocuments(EMAIL_SELECTORS);
   }
 
   getWebsiteInput(): HTMLInputElement | null {
-    return safeQueryInput(this.document, WEBSITE_SELECTORS);
+    return this.queryInputAcrossAccessibleDocuments(WEBSITE_SELECTORS);
   }
 
   getSubmitButton(): HTMLElement | null {
-    return safeQuery<HTMLElement>(this.document, SUBMIT_SELECTORS);
+    return this.queryAcrossAccessibleDocuments<HTMLElement>(SUBMIT_SELECTORS);
   }
 
   fillFields(fields: CommentFormFields): void {
+    this.options.logger?.debug('Generic provider filling comment fields.');
     this.fillComment(fields.comment);
     setElementValue(this.getNameInput(), fields.name ?? '');
     setElementValue(this.getEmailInput(), fields.email ?? '');
@@ -91,13 +103,49 @@ export class GenericProvider implements CommentProvider {
       providerId: this.id,
       detected: this.detect(),
       confidence: this.getConfidence(),
-      reason: 'Generic textarea/input/contenteditable comment form scan.'
+      reason: 'Generic textarea/input/contenteditable comment form scan.',
+      capabilities: {
+        iframeReady: true,
+        contentEditableReady: true,
+        dynamicPageReady: true
+      }
     };
+  }
+
+  private queryInputAcrossAccessibleDocuments(selectors: string[]): HTMLInputElement | null {
+    for (const candidateDocument of this.getCandidateDocuments()) {
+      const input = safeQueryInput(candidateDocument, selectors);
+      if (input) {
+        return input;
+      }
+    }
+
+    return null;
+  }
+
+  private queryAcrossAccessibleDocuments<TElement extends HTMLElement>(
+    selectors: string[],
+    validate: (element: Element | null) => element is TElement = (
+      element
+    ): element is TElement => element instanceof HTMLElement
+  ): TElement | null {
+    for (const candidateDocument of this.getCandidateDocuments()) {
+      const element = safeQuery<TElement>(candidateDocument, selectors);
+      if (validate(element)) {
+        return element;
+      }
+    }
+
+    return null;
+  }
+
+  private getCandidateDocuments(): Document[] {
+    return [this.document, ...getAccessibleFrameDocuments(this.document)];
   }
 }
 
 export const genericProviderFactory: CommentProviderFactory = {
-  create(document) {
-    return new GenericProvider(document);
+  create(document, _learnedRecord, options) {
+    return new GenericProvider(document, options);
   }
 };

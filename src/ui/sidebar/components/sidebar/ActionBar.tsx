@@ -14,6 +14,9 @@ export function ActionBar({ isGenerating, onAction }: ActionBarProps) {
       <button type="button" className="ai-link-button" onClick={() => onAction('fill')}>
         Fill
       </button>
+      <button type="button" className="ai-link-button" onClick={() => onAction('select_comment_box')}>
+        Select Comment Box
+      </button>
       <button type="button" className="ai-link-button" onClick={() => onAction('next')}>
         Next
       </button>

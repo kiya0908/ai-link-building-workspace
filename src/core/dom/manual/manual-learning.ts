@@ -8,27 +8,46 @@ export interface ManualLearningSession {
   stop(): void;
 }
 
+export interface ManualLearningOptions {
+  onCancelled?(): void;
+}
+
 export function startManualLearning(
   document: Document,
   field: LearnableField,
-  onSelected: (selector: string) => void
+  onSelected: (selector: string) => void,
+  options: ManualLearningOptions = {}
 ): ManualLearningSession {
   const handleClick = (event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
 
     const target = event.target;
-    if (target instanceof Element) {
+    if (target instanceof Element && isLearnableElement(target, field)) {
       onSelected(buildStableSelector(target));
       stop();
     }
   };
 
-  const stop = () => {
-    document.removeEventListener('click', handleClick, true);
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') {
+      return;
+    }
+
+    event.preventDefault();
+    options.onCancelled?.();
+    stop();
   };
 
+  const stop = () => {
+    document.removeEventListener('click', handleClick, true);
+    document.removeEventListener('keydown', handleKeyDown, true);
+    document.documentElement.removeAttribute('data-ai-link-learning');
+  };
+
+  document.documentElement.setAttribute('data-ai-link-learning', field);
   document.addEventListener('click', handleClick, true);
+  document.addEventListener('keydown', handleKeyDown, true);
 
   return { stop };
 }
@@ -53,6 +72,22 @@ export async function storeLearnedSelector(
 
   await repository.put(record);
   return record;
+}
+
+function isLearnableElement(element: Element, field: LearnableField): boolean {
+  if (field === 'comment') {
+    return (
+      element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLElement && element.isContentEditable
+    );
+  }
+
+  if (field === 'submit') {
+    return element instanceof HTMLButtonElement || element instanceof HTMLInputElement;
+  }
+
+  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
 }
 
 function createSelectors(existing?: Partial<LearnedSelectors>): LearnedSelectors {

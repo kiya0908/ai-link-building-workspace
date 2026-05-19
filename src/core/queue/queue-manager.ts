@@ -11,6 +11,8 @@ import { DEFAULT_QUEUE_STATE_ID } from '@/core/storage/repositories/queue-state-
 
 export interface QueueManager {
   list(projectId: string): Promise<BacklinkTarget[]>;
+  saveTarget(target: BacklinkTarget): Promise<void>;
+  openTarget(targetId: string): Promise<BacklinkTarget>;
   openNextTarget(projectId: string): Promise<BacklinkTarget | null>;
   updateStatus(targetId: string, status: TargetStatus): Promise<void>;
   markStatus(targetId: string, status: TargetStatus): Promise<void>;
@@ -31,6 +33,25 @@ export function createQueueManager(
   return {
     list(projectId) {
       return repository.listTargets(projectId);
+    },
+    saveTarget(target) {
+      return repository.saveTarget(target);
+    },
+    async openTarget(targetId) {
+      const target = await repository.getTarget(targetId);
+      if (!target) {
+        throw new Error(`Target not found: ${targetId}`);
+      }
+
+      const openedTarget = {
+        ...target,
+        status: 'opened' as TargetStatus,
+        updatedAt: Date.now()
+      };
+
+      await repository.saveTarget(openedTarget);
+      await stateRepository.saveState(createQueueState(openedTarget.projectId, openedTarget.id));
+      return openedTarget;
     },
     async openNextTarget(projectId) {
       const targets = await repository.listTargets(projectId);
@@ -65,7 +86,7 @@ export function createQueueManager(
     },
     async restoreState(projectId) {
       const state = await stateRepository.getState(DEFAULT_QUEUE_STATE_ID);
-      if (state) {
+      if (state && (!projectId || state.activeProjectId === projectId)) {
         return state;
       }
 

@@ -27,6 +27,8 @@ test('queue manager exposes persistence-safe workflow operations', () => {
 
   [
     'openNextTarget',
+    'openTarget',
+    'saveTarget',
     'updateStatus',
     'skipTarget',
     'retryTarget',
@@ -37,6 +39,7 @@ test('queue manager exposes persistence-safe workflow operations', () => {
     assert.match(manager, new RegExp(`${methodName}\\(`));
   });
 
+  assert.match(manager, /state\.activeProjectId === projectId/);
   assert.doesNotMatch(manager, /let\\s+current|serviceWorker|globalThis\\./);
 });
 
@@ -67,8 +70,12 @@ test('queue import export supports JSON and CSV without AI or DOM logic', () => 
 
 test('zustand queue store hydrates from queue manager instead of in-memory background state', () => {
   const queueStore = read('src/ui/sidebar/store/queue-store.ts');
+  const backgroundHandlers = read('src/shared/messaging/background-handlers.ts');
 
   assert.match(queueStore, /hydrateQueue/);
-  assert.match(queueStore, /createIndexedDBQueueManager/);
+  assert.match(queueStore, /createRuntimeMessageClient/);
+  assert.match(queueStore, /QUEUE_HYDRATE/);
+  assert.match(backgroundHandlers, /createIndexedDBQueueManager/);
+  assert.match(backgroundHandlers, /QUEUE_IMPORT_TARGETS/);
   assert.doesNotMatch(queueStore, /chrome\\.storage|localStorage/);
 });

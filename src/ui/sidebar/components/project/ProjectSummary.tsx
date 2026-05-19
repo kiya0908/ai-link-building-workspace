@@ -9,7 +9,7 @@ export function ProjectSummary({ project }: ProjectSummaryProps) {
   return (
     <WorkspacePanel title="Current Project">
       <div className="ai-link-project">
-        <div>
+        <div className="ai-link-project__heading">
           <strong>{project.name}</strong>
           <span>{project.brand}</span>
         </div>

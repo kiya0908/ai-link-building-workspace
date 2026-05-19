@@ -1,3 +1,5 @@
+export { COMMENT_SYSTEM_PROMPT, buildCommentPrompt } from '@/core/ai/prompts/comment-prompt';
+
 export const COMMENT_PROMPT_TEMPLATE = `You are writing a natural blog comment as a real reader.
 
 ARTICLE TITLE:

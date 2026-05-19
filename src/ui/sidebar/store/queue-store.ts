@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { createIndexedDBQueueManager } from '@/core/queue/indexeddb-queue-manager';
+import { createRuntimeMessageClient } from '@/shared/messaging/runtime-client';
+import type { QueueSnapshotResponse } from '@/shared/messaging/messages';
 import type {
   BacklinkTarget,
   QueueFilter,
-  QueueState,
   QueueStatistics,
   TargetStatus
 } from '@/core/types/queue';
@@ -17,14 +17,16 @@ interface QueueStore {
   error: string | null;
   hydrateQueue(projectId?: string): Promise<void>;
   switchCurrentProject(projectId: string): Promise<void>;
-  openNextTarget(): Promise<void>;
+  openTarget(targetId: string): Promise<BacklinkTarget | null>;
+  openNextTarget(): Promise<BacklinkTarget | null>;
   updateStatus(targetId: string, status: TargetStatus): Promise<void>;
   skipTarget(targetId: string): Promise<void>;
   retryTarget(targetId: string): Promise<void>;
   filterQueue(filter: QueueFilter): Promise<void>;
+  importTargets(targets: BacklinkTarget[]): Promise<void>;
 }
 
-const queueManager = createIndexedDBQueueManager();
+const runtimeClient = createRuntimeMessageClient();
 
 const emptyStatistics: QueueStatistics = {
   total: 0,
@@ -42,61 +44,92 @@ export const useQueueStore = create<QueueStore>((set, get) => ({
   error: null,
   async hydrateQueue(projectId) {
     await runQueueMutation(set, async () => {
-      const state = await queueManager.restoreState(projectId);
-      await loadProjectQueue(set, state);
+      applyQueueSnapshot(
+        set,
+        await runtimeClient.send<QueueSnapshotResponse>({
+          type: 'QUEUE_HYDRATE',
+          payload: { projectId }
+        })
+      );
     });
   },
   async switchCurrentProject(projectId) {
     await runQueueMutation(set, async () => {
-      await queueManager.restoreState(projectId);
-      const openedTarget = await queueManager.openNextTarget(projectId);
-      const state: QueueState = {
-        id: 'default',
-        activeProjectId: projectId,
-        currentTargetId: openedTarget?.id ?? null,
-        updatedAt: Date.now()
-      };
-      await loadProjectQueue(set, state);
+      applyQueueSnapshot(
+        set,
+        await runtimeClient.send<QueueSnapshotResponse>({
+          type: 'QUEUE_SWITCH_PROJECT',
+          payload: { projectId }
+        })
+      );
     });
+  },
+  async openTarget(targetId) {
+    let openedTarget: BacklinkTarget | null = null;
+    await runQueueMutation(set, async () => {
+      const snapshot = await runtimeClient.send<QueueSnapshotResponse>({
+        type: 'QUEUE_OPEN_TARGET',
+        payload: { targetId }
+      });
+      openedTarget = snapshot.openedTarget ?? null;
+      applyQueueSnapshot(set, snapshot);
+    });
+    return openedTarget;
   },
   async openNextTarget() {
     const projectId = get().activeProjectId;
     if (!projectId) {
-      return;
+      return null;
     }
 
+    let openedTarget: BacklinkTarget | null = null;
     await runQueueMutation(set, async () => {
-      const openedTarget = await queueManager.openNextTarget(projectId);
-      await loadProjectQueue(set, {
-        id: 'default',
-        activeProjectId: projectId,
-        currentTargetId: openedTarget?.id ?? null,
-        updatedAt: Date.now()
+      const snapshot = await runtimeClient.send<QueueSnapshotResponse>({
+        type: 'QUEUE_OPEN_NEXT',
+        payload: { projectId }
       });
+      openedTarget = snapshot.openedTarget ?? null;
+      applyQueueSnapshot(set, snapshot);
     });
+    return openedTarget;
   },
   async updateStatus(targetId, status) {
     await runQueueMutation(set, async () => {
-      await queueManager.updateStatus(targetId, status);
-      await reloadActiveProject(set, get());
+      applyQueueSnapshot(
+        set,
+        await runtimeClient.send<QueueSnapshotResponse>({
+          type: 'QUEUE_UPDATE_STATUS',
+          payload: { targetId, status }
+        })
+      );
     });
   },
   async skipTarget(targetId) {
-    await runQueueMutation(set, async () => {
-      await queueManager.skipTarget(targetId);
-      await reloadActiveProject(set, get());
-    });
+    await get().updateStatus(targetId, 'skipped');
   },
   async retryTarget(targetId) {
-    await runQueueMutation(set, async () => {
-      await queueManager.retryTarget(targetId);
-      await reloadActiveProject(set, get());
-    });
+    await get().updateStatus(targetId, 'pending');
   },
   async filterQueue(filter) {
     await runQueueMutation(set, async () => {
-      const targets = await queueManager.filterTargets(filter);
-      set({ targets });
+      applyQueueSnapshot(
+        set,
+        await runtimeClient.send<QueueSnapshotResponse>({
+          type: 'QUEUE_FILTER',
+          payload: { filter }
+        })
+      );
+    });
+  },
+  async importTargets(targets) {
+    await runQueueMutation(set, async () => {
+      applyQueueSnapshot(
+        set,
+        await runtimeClient.send<QueueSnapshotResponse>({
+          type: 'QUEUE_IMPORT_TARGETS',
+          payload: { targets }
+        })
+      );
     });
   }
 }));
@@ -117,35 +150,11 @@ async function runQueueMutation(
   }
 }
 
-async function reloadActiveProject(
-  set: (state: Partial<QueueStore>) => void,
-  state: QueueStore
-) {
-  if (!state.activeProjectId) {
-    return;
-  }
-
-  await loadProjectQueue(set, {
-    id: 'default',
-    activeProjectId: state.activeProjectId,
-    currentTargetId: state.currentTargetId,
-    updatedAt: Date.now()
-  });
-}
-
-async function loadProjectQueue(
-  set: (state: Partial<QueueStore>) => void,
-  state: QueueState
-) {
-  const targets = state.activeProjectId ? await queueManager.list(state.activeProjectId) : [];
-  const statistics = state.activeProjectId
-    ? await queueManager.getStatistics(state.activeProjectId)
-    : emptyStatistics;
-
+function applyQueueSnapshot(set: (state: Partial<QueueStore>) => void, snapshot: QueueSnapshotResponse) {
   set({
-    activeProjectId: state.activeProjectId,
-    currentTargetId: state.currentTargetId,
-    targets,
-    statistics
+    activeProjectId: snapshot.state.activeProjectId,
+    currentTargetId: snapshot.state.currentTargetId,
+    targets: snapshot.targets,
+    statistics: snapshot.statistics
   });
 }

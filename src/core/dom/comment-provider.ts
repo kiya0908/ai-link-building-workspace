@@ -12,10 +12,21 @@ export interface ProviderDetectionResult {
   detected: boolean;
   confidence: number;
   reason: string;
+  capabilities?: ProviderCapabilities;
 }
 
 export interface ProviderDebugLogger {
   debug(message: string, context?: Record<string, unknown>): void;
+}
+
+export interface ProviderCapabilities {
+  iframeReady: boolean;
+  contentEditableReady: boolean;
+  dynamicPageReady: boolean;
+}
+
+export interface ProviderCreateOptions {
+  logger?: ProviderDebugLogger;
 }
 
 export interface CommentProvider {
@@ -34,5 +45,9 @@ export interface CommentProvider {
 }
 
 export interface CommentProviderFactory {
-  create(document: Document, learnedRecord?: SiteLearningRecord | null): CommentProvider;
+  create(
+    document: Document,
+    learnedRecord?: SiteLearningRecord | null,
+    options?: ProviderCreateOptions
+  ): CommentProvider;
 }
