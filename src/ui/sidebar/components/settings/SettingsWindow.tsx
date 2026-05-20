@@ -1,12 +1,23 @@
 import { AISettingsPanel } from '@/ui/sidebar/components/settings/AISettingsPanel';
+import { IdentityManagerPanel } from '@/ui/sidebar/components/settings/IdentityManagerPanel';
+import { ProjectManagerPanel } from '@/ui/sidebar/components/settings/ProjectManagerPanel';
 import { WorkspaceProfilePanel } from '@/ui/sidebar/components/settings/WorkspaceProfilePanel';
 import type { SidebarIdentity, SidebarProject } from '@/ui/sidebar/types';
 
 interface SettingsWindowProps {
   project: SidebarProject;
   identity: SidebarIdentity;
+  identities: SidebarIdentity[];
+  projects: SidebarProject[];
   onProfileImport(project: SidebarProject, identity: SidebarIdentity): void;
   onIdentitySave(identity: SidebarIdentity): void;
+  onCreateIdentity(identity: SidebarIdentity): void;
+  onSwitchIdentity(identityId: string): void;
+  onDeleteIdentity(identityId: string): void;
+  onSwitchProject(projectId: string): void;
+  onDeleteProject(projectId: string): void;
+  onUpdateProject(project: SidebarProject): void;
+  onCreateProject(project: SidebarProject): void;
   onClose(): void;
   onSaved(message: string): void;
   onError(message: string): void;
@@ -15,8 +26,17 @@ interface SettingsWindowProps {
 export function SettingsWindow({
   project,
   identity,
+  identities,
+  projects,
   onProfileImport,
   onIdentitySave,
+  onCreateIdentity,
+  onSwitchIdentity,
+  onDeleteIdentity,
+  onSwitchProject,
+  onDeleteProject,
+  onUpdateProject,
+  onCreateProject,
   onClose,
   onSaved,
   onError
@@ -33,6 +53,23 @@ export function SettingsWindow({
         </button>
       </div>
       <div className="ai-link-settings-window__content">
+        <ProjectManagerPanel
+          projects={projects}
+          currentProject={project}
+          onSwitch={onSwitchProject}
+          onDelete={onDeleteProject}
+          onUpdate={onUpdateProject}
+          onCreate={onCreateProject}
+          onError={onError}
+        />
+        <IdentityManagerPanel
+          identities={identities}
+          currentIdentity={identity}
+          onSwitch={onSwitchIdentity}
+          onDelete={onDeleteIdentity}
+          onSave={onIdentitySave}
+          onCreate={onCreateIdentity}
+        />
         <WorkspaceProfilePanel
           project={project}
           identity={identity}

@@ -21,6 +21,7 @@ export interface QueueManager {
   restoreState(projectId?: string): Promise<QueueState>;
   filterTargets(filter: QueueFilter): Promise<BacklinkTarget[]>;
   getStatistics(projectId: string): Promise<QueueStatistics>;
+  clearProjectTargets(projectId: string): Promise<void>;
 }
 
 export function createQueueManager(
@@ -120,6 +121,9 @@ export function createQueueManager(
         failed: targets.filter((target) => target.status === 'failed').length,
         skipped: targets.filter((target) => target.status === 'skipped').length
       };
+    },
+    clearProjectTargets(projectId) {
+      return repository.clearProjectTargets(projectId);
     }
   };
 }

@@ -1,4 +1,5 @@
 import { TARGET_STATUSES, type BacklinkTarget, type TargetStatus } from '@/core/types/queue';
+import { openWorkspaceDatabase, STORE_NAMES } from '@/core/storage/database';
 
 const CSV_COLUMNS = [
   'id',
@@ -100,4 +101,23 @@ function parseCsvRow(row: string): string[] {
 
   cells.push(current);
   return cells;
+}
+
+export async function exportFullDatabase(): Promise<string> {
+  const db = await openWorkspaceDatabase();
+  const exportData: Record<string, unknown[]> = {};
+
+  const storeNames = Array.from(db.objectStoreNames);
+  for (const storeName of storeNames) {
+    const transaction = db.transaction(storeName, 'readonly');
+    const store = transaction.objectStore(storeName);
+    exportData[storeName] = await new Promise<unknown[]>((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  db.close();
+  return JSON.stringify(exportData, null, 2);
 }

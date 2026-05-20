@@ -436,6 +436,129 @@ Determines whether page is suitable for commenting.
 - JSON
 - CSV
 
+## 7.18 AI Provider Configuration
+
+User-configurable AI provider settings via sidebar Settings panel.
+
+### Features
+
+- OpenRouter API Key input
+- Model override (default: DeepSeek V4 Flash)
+- Settings persisted to chrome.storage.local
+
+## 7.19 Comment Generation History
+
+Persists every generated comment to IndexedDB per target for anti-duplicate support.
+
+### Features
+
+- Stores comment text per target
+- Stores model name and token usage
+- Stores validation issues
+- Provides previous comments to prompt builder to avoid duplicates
+
+### Structure
+
+```json
+{
+  "id": "",
+  "targetId": "",
+  "projectId": "",
+  "comment": "",
+  "mode": "soft_mention",
+  "model": "",
+  "tokenUsage": {
+    "promptTokens": 0,
+    "completionTokens": 0,
+    "totalTokens": 0
+  },
+  "validationIssues": [],
+  "createdAt": 0
+}
+```
+
+## 7.20 Comment Validation & Sanitization
+
+Validates and sanitizes AI-generated comments before displaying to user.
+
+### Validation Rules
+
+- Empty or too short (< 12 words)
+- Too long (> 90 words)
+- Too many links (> 1)
+- Spam phrases ("buy now", "click here", etc.)
+- Unexpected HTML when mode is not html_link
+
+### Sanitization
+
+- Removes markdown code fences
+- Removes leading/trailing quotes and whitespace
+- Collapses multiple whitespace characters
+- Strips unsafe HTML (except allowed `<a>` tags)
+- Removes inline event handlers and javascript: URLs
+
+## 7.21 Token Usage Tracking
+
+Tracks token consumption for every AI generation request.
+
+### Display
+
+- Total tokens shown in sidebar next to generated comment
+- Model name displayed alongside comment
+
+## 7.22 DOM Operation Retry
+
+Safe retry mechanism for DOM fill operations on dynamic pages.
+
+### Features
+
+- Configurable retry attempts (default: 3)
+- Configurable delay between retries (default: 250ms)
+- Re-detects provider on each retry attempt
+
+## 7.23 Provider Debug System
+
+Runtime debug logging for provider detection and fill operations.
+
+### Features
+
+- Per-provider confidence scores and detection reasons
+- Detection session with candidate provider enumeration
+- Enable via `data-ai-link-provider-debug="true"` on document root
+- Console logging through provider abstraction
+
+## 7.24 Workspace Profile Import
+
+Bulk import a complete workspace configuration including project and identity via file.
+
+### Supported Formats
+
+- JSON
+- CSV
+
+### Imported Fields
+
+- Project brand, website, description, default comment mode
+- Comment identity name, email, website
+
+## 7.25 Example File Download
+
+Built-in download of example import files for queue targets and workspace profiles.
+
+### Features
+
+- Download JSON/CSV example from Queue import menu
+- Ensures users understand expected file structure before import
+
+## 7.26 Sidebar Error Boundary
+
+React Error Boundary wrapping the entire sidebar to prevent extension crash from cascading.
+
+### Features
+
+- Catches render errors in any sidebar component
+- Displays fallback UI instead of blank sidebar
+
 # 8. Sidebar UI
 
 ## UI Type

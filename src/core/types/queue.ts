@@ -61,6 +61,7 @@ export interface QueueRepository {
   getTarget(id: string): Promise<BacklinkTarget | null>;
   saveTarget(target: BacklinkTarget): Promise<void>;
   updateTargetStatus(id: string, status: TargetStatus): Promise<void>;
+  clearProjectTargets(projectId: string): Promise<void>;
 }
 
 export interface QueueStateRepository {

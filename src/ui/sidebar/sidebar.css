@@ -3,7 +3,7 @@
   top: 0;
   right: 0;
   z-index: 2147483647;
-  color-scheme: light dark;
+  color-scheme: light;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -28,17 +28,17 @@ html[data-ai-link-learning="comment"] [contenteditable="true"] {
 }
 
 .ai-link-sidebar {
-  --ai-link-bg: light-dark(#ffffff, #111827);
-  --ai-link-surface: light-dark(#f9fafb, #1f2937);
-  --ai-link-surface-strong: light-dark(#f3f4f6, #263244);
-  --ai-link-text: light-dark(#111827, #f9fafb);
-  --ai-link-muted: light-dark(#6b7280, #a7b0bf);
-  --ai-link-border: light-dark(#d1d5db, #374151);
-  --ai-link-accent: light-dark(#2563eb, #60a5fa);
+  --ai-link-bg: #ffffff;
+  --ai-link-surface: #f9fafb;
+  --ai-link-surface-strong: #f3f4f6;
+  --ai-link-text: #111827;
+  --ai-link-muted: #6b7280;
+  --ai-link-border: #d1d5db;
+  --ai-link-accent: #2563eb;
   --ai-link-accent-text: #ffffff;
-  --ai-link-warning: light-dark(#b45309, #fbbf24);
-  --ai-link-error: light-dark(#b91c1c, #f87171);
-  --ai-link-success: light-dark(#047857, #34d399);
+  --ai-link-warning: #b45309;
+  --ai-link-error: #b91c1c;
+  --ai-link-success: #047857;
   position: fixed;
   top: 24px;
   right: 0;
@@ -249,6 +249,19 @@ html[data-ai-link-learning="comment"] [contenteditable="true"] {
   font-size: 12px;
   line-height: 1.4;
   padding: 8px;
+}
+
+.ai-link-project-switcher {
+  min-height: 22px;
+  border: 1px solid var(--ai-link-border);
+  border-radius: 6px;
+  background: var(--ai-link-bg);
+  color: var(--ai-link-text);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 3px 6px;
+  cursor: pointer;
 }
 
 .ai-link-settings-window {

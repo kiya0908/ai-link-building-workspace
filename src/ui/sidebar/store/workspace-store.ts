@@ -16,6 +16,8 @@ interface WorkspaceStore {
   isHydrated: boolean;
   projects: SidebarProject[];
   currentProject: SidebarProject;
+  identities: SidebarIdentity[];
+  currentIdentityId: string;
   identity: SidebarIdentity;
   queueItems: QueueItem[];
   articleAnalysis: SidebarArticleAnalysis;
@@ -25,7 +27,13 @@ interface WorkspaceStore {
   toggle(): void;
   runAction(action: SidebarAction): void;
   createWorkspaceProfile(project: SidebarProject, identity: SidebarIdentity): void;
+  switchProject(projectId: string): void;
+  deleteProject(projectId: string): void;
+  updateProject(project: SidebarProject): void;
   setIdentity(identity: SidebarIdentity): void;
+  switchIdentity(identityId: string): void;
+  createIdentity(identity: SidebarIdentity): void;
+  deleteIdentity(identityId: string): void;
   setArticleAnalysis(analysis: SidebarArticleAnalysis): void;
   setGeneratedComment(result: GenerateCommentResponse): void;
   setActionSuccess(label: string, detail: string): void;
@@ -54,6 +62,15 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     description: 'Soft mention backlink workflow for pet care blog comments.',
     defaultCommentMode: 'soft_mention'
   },
+  identities: [
+    {
+      id: 'identity-1',
+      name: '',
+      email: '',
+      website: 'https://dogagecalculator.info'
+    }
+  ],
+  currentIdentityId: 'identity-1',
   identity: {
     id: 'identity-1',
     name: '',
@@ -208,7 +225,137 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         detail,
         tone: 'success'
       }
-    }))
+    })),
+  switchProject: (projectId) =>
+    set((state) => {
+      const project = state.projects.find((p) => p.id === projectId);
+      if (!project) {
+        return state;
+      }
+      const nextState = {
+        ...state,
+        currentProject: project
+      };
+      void saveStoredWorkspace(nextState);
+      return {
+        currentProject: project,
+        commentState: {
+          ...state.commentState,
+          mode: project.defaultCommentMode
+        },
+        status: {
+          label: 'Project switched',
+          detail: `${project.brand} is now the active project.`,
+          tone: 'success'
+        }
+      };
+    }),
+  deleteProject: (projectId) =>
+    set((state) => {
+      const nextProjects = state.projects.filter((p) => p.id !== projectId);
+      const nextCurrent =
+        state.currentProject.id === projectId
+          ? (nextProjects[0] ?? state.currentProject)
+          : state.currentProject;
+      const nextState = {
+        projects: nextProjects,
+        currentProject: nextCurrent,
+        identity: state.identity
+      };
+      void saveStoredWorkspace(nextState);
+      return {
+        ...nextState,
+        status: {
+          label: 'Project deleted',
+          detail: 'The project and its targets have been removed.',
+          tone: 'success'
+        }
+      };
+    }),
+  updateProject: (project) =>
+    set((state) => {
+      const nextProjects = state.projects.map((p) =>
+        p.id === project.id ? project : p
+      );
+      const nextCurrent =
+        state.currentProject.id === project.id ? project : state.currentProject;
+      const nextState = {
+        projects: nextProjects,
+        currentProject: nextCurrent,
+        identity: state.identity
+      };
+      void saveStoredWorkspace(nextState);
+      return {
+        ...nextState,
+        status: {
+          label: 'Project updated',
+          detail: `${project.brand} settings have been saved.`,
+          tone: 'success'
+        }
+      };
+    }),
+  switchIdentity: (identityId) =>
+    set((state) => {
+      const identity = state.identities.find((i) => i.id === identityId);
+      if (!identity) {
+        return state;
+      }
+      const nextState = {
+        ...state,
+        identity
+      };
+      void saveStoredWorkspace(nextState);
+      return {
+        identity,
+        status: {
+          label: 'Identity switched',
+          detail: `${identity.name || 'Unnamed'} is now the active identity.`,
+          tone: 'success'
+        }
+      };
+    }),
+  createIdentity: (identity) =>
+    set((state) => {
+      const nextIdentities = [...state.identities, identity];
+      const nextState = {
+        ...state,
+        identities: nextIdentities,
+        identity
+      };
+      void saveStoredWorkspace(nextState);
+      return {
+        identities: nextIdentities,
+        identity,
+        status: {
+          label: 'Identity created',
+          detail: `${identity.name || 'Unnamed'} identity added.`,
+          tone: 'success'
+        }
+      };
+    }),
+  deleteIdentity: (identityId) =>
+    set((state) => {
+      const nextIdentities = state.identities.filter((i) => i.id !== identityId);
+      const nextIdentity =
+        state.identity.id === identityId
+          ? (nextIdentities[0] ?? state.identity)
+          : state.identity;
+      const nextState = {
+        ...state,
+        identities: nextIdentities,
+        identity: nextIdentity
+      };
+      void saveStoredWorkspace(nextState);
+      return {
+        identities: nextIdentities,
+        identity: nextIdentity,
+        status: {
+          label: 'Identity deleted',
+          detail: 'The identity has been removed.',
+          tone: 'success'
+        }
+      };
+    })
 }));
 
 const actionLabelMap: Record<SidebarAction, string> = {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { extractArticle } from '@/core/article/article-extractor';
 import { detectDefaultProvider } from '@/content/dom/provider-registry';
+import { startAutoSubmitDetector } from '@/core/dom/auto-submit-detector';
 import {
   startManualLearning,
   storeLearnedSelector,
@@ -8,7 +9,9 @@ import {
 } from '@/core/dom/manual/manual-learning';
 import { evaluatePageQuality } from '@/core/quality/quality-filter';
 import { createRuntimeMessageClient } from '@/shared/messaging/runtime-client';
-import type { GenerateCommentResponse } from '@/shared/messaging/messages';
+import type { LinkAsset } from '@/core/types/project';
+import { createIndexedDBLinkAssetRepository } from '@/core/storage/repositories/link-asset-repository';
+import type { GenerateCommentResponse, QueueSnapshotResponse } from '@/shared/messaging/messages';
 import { GeneratedCommentPanel } from '@/ui/sidebar/components/comment/GeneratedCommentPanel';
 import { ArticleAnalysisPanel } from '@/ui/sidebar/components/project/ArticleAnalysisPanel';
 import { QueueList } from '@/ui/sidebar/components/queue/QueueList';
@@ -34,16 +37,25 @@ export function SidebarApp() {
   const status = useWorkspaceStore((state) => state.status);
   const hydrateWorkspace = useWorkspaceStore((state) => state.hydrateWorkspace);
   const runAction = useWorkspaceStore((state) => state.runAction);
+  const projects = useWorkspaceStore((state) => state.projects);
+  const switchProject = useWorkspaceStore((state) => state.switchProject);
   const createWorkspaceProfile = useWorkspaceStore((state) => state.createWorkspaceProfile);
   const setIdentity = useWorkspaceStore((state) => state.setIdentity);
   const setArticleAnalysis = useWorkspaceStore((state) => state.setArticleAnalysis);
   const setGeneratedComment = useWorkspaceStore((state) => state.setGeneratedComment);
   const setActionSuccess = useWorkspaceStore((state) => state.setActionSuccess);
   const setActionError = useWorkspaceStore((state) => state.setActionError);
+  const identities = useWorkspaceStore((state) => state.identities);
+  const createIdentity = useWorkspaceStore((state) => state.createIdentity);
+  const switchIdentity = useWorkspaceStore((state) => state.switchIdentity);
+  const deleteIdentity = useWorkspaceStore((state) => state.deleteIdentity);
+  const deleteProject = useWorkspaceStore((state) => state.deleteProject);
+  const updateProject = useWorkspaceStore((state) => state.updateProject);
   const hydrateQueue = useQueueStore((state) => state.hydrateQueue);
   const importTargets = useQueueStore((state) => state.importTargets);
   const openTarget = useQueueStore((state) => state.openTarget);
   const openNextTarget = useQueueStore((state) => state.openNextTarget);
+  const updateTargetStatus = useQueueStore((state) => state.updateStatus);
   const persistedTargets = useQueueStore((state) => state.targets);
   const persistedCurrentTargetId = useQueueStore((state) => state.currentTargetId);
   const manualLearningSession = useRef<ManualLearningSession | null>(null);
@@ -71,6 +83,18 @@ export function SidebarApp() {
     };
   }, []);
 
+  const visibleActiveItemId = persistedCurrentTargetId ?? activeItemId;
+
+  useEffect(() => {
+    const stopDetector = startAutoSubmitDetector(
+      document,
+      visibleActiveItemId ?? null
+    );
+    return () => {
+      stopDetector();
+    };
+  }, [visibleActiveItemId]);
+
   const visibleQueueItems = useMemo(() => {
     return persistedTargets.map((target, index) => ({
       id: target.id,
@@ -82,8 +106,19 @@ export function SidebarApp() {
       position: index + 1
     }));
   }, [persistedTargets]);
+  const [linkAsset, setLinkAsset] = useState<LinkAsset | null>(null);
 
-  const visibleActiveItemId = persistedCurrentTargetId ?? activeItemId;
+  useEffect(() => {
+    if (!currentProject.id) {
+      return;
+    }
+    createIndexedDBLinkAssetRepository()
+      .getDefaultForProject(currentProject.id)
+      .then(setLinkAsset)
+      .catch(() => {
+        setLinkAsset(null);
+      });
+  }, [currentProject.id]);
 
   const handleAction = (action: SidebarAction) => {
     runAction(action);
@@ -116,6 +151,12 @@ export function SidebarApp() {
     if (action === 'generate' || action === 'regenerate') {
       const analysis = analyzeCurrentPage();
       setArticleAnalysis(analysis.sidebarAnalysis);
+
+      const targetId = visibleActiveItemId ?? window.location.href;
+      updateTargetStatus(targetId, 'analyzed').catch(() => {
+        // Silently ignore status update failures
+      });
+
       runtimeClient
         .send<GenerateCommentResponse>({
           type: 'GENERATE_COMMENT',
@@ -131,10 +172,15 @@ export function SidebarApp() {
             },
             style: commentState.style,
             mode: commentState.mode,
-            targetId: visibleActiveItemId ?? window.location.href
+            targetId
           }
         })
-        .then(setGeneratedComment)
+        .then((result) => {
+          setGeneratedComment(result);
+          updateTargetStatus(targetId, 'generated').catch(() => {
+            // Silently ignore status update failures
+          });
+        })
         .catch((error: unknown) => {
           setActionError(error instanceof Error ? error.message : 'Unable to generate comment.');
         });
@@ -148,13 +194,26 @@ export function SidebarApp() {
         return;
       }
 
+      const websiteValue =
+        (commentState.mode === 'html_link' && linkAsset?.htmlCode) ||
+        (commentState.mode === 'plain_url' && linkAsset?.plainUrl) ||
+        linkAsset?.anchorText ||
+        identity.website ||
+        currentProject.website;
+
       provider.fillFields({
         comment: commentState.draft,
         name: identity.name,
         email: identity.email,
-        website: identity.website || currentProject.website
+        website: websiteValue
       });
       provider.scrollToComment();
+
+      const targetId = visibleActiveItemId ?? window.location.href;
+      updateTargetStatus(targetId, 'filled').catch(() => {
+        // Silently ignore status update failures
+      });
+
       setActionSuccess('Comment filled', 'Review the page fields and submit manually when ready.');
       return;
     }
@@ -175,6 +234,18 @@ export function SidebarApp() {
       return;
     }
 
+    if (action === 'skip') {
+      const targetId = visibleActiveItemId ?? window.location.href;
+      updateTargetStatus(targetId, 'skipped')
+        .then(() => {
+          setActionSuccess('Target skipped', 'The current target has been marked as skipped.');
+        })
+        .catch((error: unknown) => {
+          setActionError(error instanceof Error ? error.message : 'Unable to skip target.');
+        });
+      return;
+    }
+
     runtimeClient.send({ type: 'SIDEBAR_ACTION', payload: { action } }).catch((error: unknown) => {
       setActionError(error instanceof Error ? error.message : 'Unable to send sidebar action.');
     });
@@ -191,7 +262,24 @@ export function SidebarApp() {
             <header className="ai-link-sidebar__header">
               <div>
                 <h1>AI Link Workspace</h1>
-                <p>Sidebar-first backlink workflow</p>
+                {projects.length > 1 ? (
+                  <select
+                    className="ai-link-project-switcher"
+                    value={currentProject.id}
+                    onChange={(event) => {
+                      switchProject(event.currentTarget.value);
+                    }}
+                    title="Switch project"
+                  >
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.brand}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p>Sidebar-first backlink workflow</p>
+                )}
               </div>
               <button
                 type="button"
@@ -240,8 +328,17 @@ export function SidebarApp() {
               <SettingsWindow
                 project={currentProject}
                 identity={identity}
+                identities={identities}
+                projects={projects}
                 onProfileImport={createWorkspaceProfile}
                 onIdentitySave={setIdentity}
+                onCreateIdentity={createIdentity}
+                onSwitchIdentity={switchIdentity}
+                onDeleteIdentity={deleteIdentity}
+                onSwitchProject={switchProject}
+                onDeleteProject={deleteProject}
+                onUpdateProject={updateProject}
+                onCreateProject={(project) => createWorkspaceProfile(project, identity)}
                 onClose={() => setSettingsOpen(false)}
                 onSaved={(message) => setActionSuccess('Settings saved', message)}
                 onError={setActionError}

@@ -40,6 +40,11 @@ export class IndexedDBTargetRepository
       updatedAt: Date.now()
     });
   }
+
+  async clearProjectTargets(projectId: string): Promise<void> {
+    const targets = await this.listTargets(projectId);
+    await Promise.all(targets.map((target) => this.delete(target.id)));
+  }
 }
 
 export function createIndexedDBTargetRepository() {

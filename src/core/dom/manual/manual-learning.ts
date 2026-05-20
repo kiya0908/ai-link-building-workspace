@@ -18,13 +18,25 @@ export function startManualLearning(
   onSelected: (selector: string) => void,
   options: ManualLearningOptions = {}
 ): ManualLearningSession {
+  const SIDEBAR_ROOT_ID = 'ai-link-building-workspace-sidebar-root';
+
   const handleClick = (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (target.closest(`#${SIDEBAR_ROOT_ID}`) || target.id === SIDEBAR_ROOT_ID) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
 
-    const target = event.target;
-    if (target instanceof Element && isLearnableElement(target, field)) {
+    if (isLearnableElement(target, field)) {
       onSelected(buildStableSelector(target));
+      stop();
+    } else {
       stop();
     }
   };

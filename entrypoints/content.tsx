@@ -21,7 +21,7 @@ function ensureSidebarRoot(): HTMLElement {
 
 export default defineContentScript({
   matches: ['<all_urls>'],
-  runAt: 'document_idle',
+  runAt: 'document_end',
   main() {
     createRuntimeMessageRouter(createContentDomMessageHandlers(document)).attach();
     createRuntimeMessageClient().send({ type: 'SIDEBAR_READY' }).catch(() => {

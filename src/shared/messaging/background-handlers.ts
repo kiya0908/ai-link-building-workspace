@@ -63,8 +63,16 @@ export function createBackgroundMessageHandlers(): RuntimeMessageHandler[] {
         }
 
         if (message.type === 'QUEUE_IMPORT_TARGETS') {
-          await Promise.all(message.payload.targets.map((target) => queueManager.saveTarget(target)));
           const projectId = message.payload.targets[0]?.projectId ?? null;
+          if (projectId) {
+            await queueManager.clearProjectTargets(projectId);
+          }
+          const now = Date.now();
+          await Promise.all(
+            message.payload.targets.map((target, index) =>
+              queueManager.saveTarget({ ...target, updatedAt: now + index })
+            )
+          );
           return createQueueSnapshot(projectId, null);
         }
 
