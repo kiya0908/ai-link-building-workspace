@@ -1,5 +1,7 @@
 import { AISettingsPanel } from '@/ui/sidebar/components/settings/AISettingsPanel';
+import { DatabaseExportPanel } from '@/ui/sidebar/components/settings/DatabaseExportPanel';
 import { IdentityManagerPanel } from '@/ui/sidebar/components/settings/IdentityManagerPanel';
+import { LinkAssetSettingsPanel } from '@/ui/sidebar/components/settings/LinkAssetSettingsPanel';
 import { ProjectManagerPanel } from '@/ui/sidebar/components/settings/ProjectManagerPanel';
 import { WorkspaceProfilePanel } from '@/ui/sidebar/components/settings/WorkspaceProfilePanel';
 import type { SidebarIdentity, SidebarProject } from '@/ui/sidebar/types';
@@ -53,6 +55,13 @@ export function SettingsWindow({
         </button>
       </div>
       <div className="ai-link-settings-window__content">
+        <WorkspaceProfilePanel
+          project={project}
+          identity={identity}
+          onImport={onProfileImport}
+          onError={onError}
+          onIdentitySave={onIdentitySave}
+        />
         <ProjectManagerPanel
           projects={projects}
           currentProject={project}
@@ -70,13 +79,12 @@ export function SettingsWindow({
           onSave={onIdentitySave}
           onCreate={onCreateIdentity}
         />
-        <WorkspaceProfilePanel
-          project={project}
-          identity={identity}
-          onImport={onProfileImport}
+        <LinkAssetSettingsPanel
+          projectId={project.id}
+          onSaved={onSaved}
           onError={onError}
-          onIdentitySave={onIdentitySave}
         />
+        <DatabaseExportPanel onSaved={onSaved} onError={onError} />
         <AISettingsPanel onSaved={onSaved} onError={onError} />
       </div>
     </div>

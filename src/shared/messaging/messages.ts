@@ -8,6 +8,7 @@ import type {
   QueueFilter,
   QueueState,
   QueueStatistics,
+  SubmissionStatus,
   TargetStatus
 } from '@/core/types/queue';
 import type { SidebarAction } from '@/shared/messaging/sidebar-actions';
@@ -44,6 +45,7 @@ export type RuntimeMessage =
       type: 'QUEUE_IMPORT_TARGETS';
       payload: {
         targets: BacklinkTarget[];
+        replaceExisting?: boolean;
       };
     }
   | {
@@ -66,10 +68,26 @@ export type RuntimeMessage =
       };
     }
   | {
+      type: 'QUEUE_UPDATE_SUBMISSION_STATUS';
+      payload: {
+        targetId: string;
+        status: SubmissionStatus;
+      };
+    }
+  | {
       type: 'QUEUE_FILTER';
       payload: {
         filter: QueueFilter;
       };
+    }
+  | {
+      type: 'QUEUE_EXPORT_TARGETS_CSV';
+      payload: {
+        projectId: string;
+      };
+    }
+  | {
+      type: 'QUEUE_EXPORT_FULL_DATABASE';
     }
   | {
       type: 'ANALYZE_CURRENT_PAGE';

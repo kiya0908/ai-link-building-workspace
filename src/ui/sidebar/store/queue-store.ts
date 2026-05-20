@@ -5,6 +5,7 @@ import type {
   BacklinkTarget,
   QueueFilter,
   QueueStatistics,
+  SubmissionStatus,
   TargetStatus
 } from '@/core/types/queue';
 
@@ -20,10 +21,11 @@ interface QueueStore {
   openTarget(targetId: string): Promise<BacklinkTarget | null>;
   openNextTarget(): Promise<BacklinkTarget | null>;
   updateStatus(targetId: string, status: TargetStatus): Promise<void>;
+  updateSubmissionStatus(targetId: string, status: SubmissionStatus): Promise<void>;
   skipTarget(targetId: string): Promise<void>;
   retryTarget(targetId: string): Promise<void>;
   filterQueue(filter: QueueFilter): Promise<void>;
-  importTargets(targets: BacklinkTarget[]): Promise<void>;
+  importTargets(targets: BacklinkTarget[], options?: { replaceExisting?: boolean }): Promise<void>;
 }
 
 const runtimeClient = createRuntimeMessageClient();
@@ -104,6 +106,17 @@ export const useQueueStore = create<QueueStore>((set, get) => ({
       );
     });
   },
+  async updateSubmissionStatus(targetId, status) {
+    await runQueueMutation(set, async () => {
+      applyQueueSnapshot(
+        set,
+        await runtimeClient.send<QueueSnapshotResponse>({
+          type: 'QUEUE_UPDATE_SUBMISSION_STATUS',
+          payload: { targetId, status }
+        })
+      );
+    });
+  },
   async skipTarget(targetId) {
     await get().updateStatus(targetId, 'skipped');
   },
@@ -121,13 +134,13 @@ export const useQueueStore = create<QueueStore>((set, get) => ({
       );
     });
   },
-  async importTargets(targets) {
+  async importTargets(targets, options = { replaceExisting: true }) {
     await runQueueMutation(set, async () => {
       applyQueueSnapshot(
         set,
         await runtimeClient.send<QueueSnapshotResponse>({
           type: 'QUEUE_IMPORT_TARGETS',
-          payload: { targets }
+          payload: { targets, replaceExisting: options.replaceExisting ?? true }
         })
       );
     });
@@ -142,9 +155,11 @@ async function runQueueMutation(
   try {
     await operation();
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Queue operation failed.';
     set({
-      error: error instanceof Error ? error.message : 'Queue operation failed.'
+      error: message
     });
+    throw new Error(message);
   } finally {
     set({ isLoading: false });
   }

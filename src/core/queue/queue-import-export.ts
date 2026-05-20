@@ -1,10 +1,18 @@
-import { TARGET_STATUSES, type BacklinkTarget, type TargetStatus } from '@/core/types/queue';
+import {
+  SUBMISSION_STATUSES,
+  TARGET_STATUSES,
+  type BacklinkTarget,
+  type SubmissionStatus,
+  type TargetStatus
+} from '@/core/types/queue';
 import { openWorkspaceDatabase, STORE_NAMES } from '@/core/storage/database';
+import { createId } from '@/shared/id';
 
 const CSV_COLUMNS = [
   'id',
   'url',
   'status',
+  'submissionStatus',
   'language',
   'commentSystem',
   'qualityScore',
@@ -20,7 +28,7 @@ export function exportTargetsAsJson(targets: BacklinkTarget[]): string {
 export function exportTargetsAsCsv(targets: BacklinkTarget[]): string {
   return [
     CSV_COLUMNS.join(','),
-    ...targets.map((target) => CSV_COLUMNS.map((column) => escapeCsvCell(String(target[column]))).join(','))
+    ...targets.map((target) => CSV_COLUMNS.map((column) => escapeCsvCell(String(target[column] ?? ''))).join(','))
   ].join('\n');
 }
 
@@ -52,9 +60,10 @@ function normalizeTarget(value: unknown): BacklinkTarget {
   const status = normalizeStatus(record.status);
 
   return {
-    id: String(record.id ?? crypto.randomUUID()),
+    id: String(record.id ?? createId()),
     url: String(record.url ?? ''),
     status,
+    submissionStatus: normalizeSubmissionStatus(record.submissionStatus),
     language: String(record.language ?? ''),
     commentSystem: String(record.commentSystem ?? ''),
     qualityScore: Number(record.qualityScore ?? 0),
@@ -67,6 +76,11 @@ function normalizeTarget(value: unknown): BacklinkTarget {
 function normalizeStatus(value: unknown): TargetStatus {
   const status = String(value ?? 'pending') as TargetStatus;
   return TARGET_STATUSES.includes(status) ? status : 'pending';
+}
+
+function normalizeSubmissionStatus(value: unknown): SubmissionStatus {
+  const status = String(value ?? 'unknown') as SubmissionStatus;
+  return SUBMISSION_STATUSES.includes(status) ? status : 'unknown';
 }
 
 function escapeCsvCell(value: string): string {

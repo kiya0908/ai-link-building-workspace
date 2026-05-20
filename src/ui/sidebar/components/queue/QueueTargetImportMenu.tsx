@@ -5,7 +5,7 @@ import type { BacklinkTarget } from '@/core/types/queue';
 
 interface QueueTargetImportMenuProps {
   projectId: string;
-  onImport(targets: BacklinkTarget[]): Promise<void>;
+  onImport(targets: BacklinkTarget[], options?: { replaceExisting?: boolean }): Promise<void>;
   onError(message: string): void;
 }
 
@@ -28,7 +28,7 @@ export function QueueTargetImportMenu({ projectId, onImport, onError }: QueueTar
           throw new Error('Import file did not contain any valid target URLs.');
         }
 
-        return onImport(targets);
+        return onImport(targets, { replaceExisting: true });
       })
       .then(() => setOpen(false))
       .catch((error: unknown) => {
@@ -75,11 +75,11 @@ function parseTargetFile(fileName: string, content: string): BacklinkTarget[] {
 function applyProjectId(targets: BacklinkTarget[], projectId: string): BacklinkTarget[] {
   return targets
     .filter((target) => target.url.trim())
-    .map((target) => ({
+    .map((target, index) => ({
       ...target,
       projectId,
       status: target.status || 'pending',
-      updatedAt: target.updatedAt || Date.now()
+      updatedAt: Date.now() + index
     }));
 }
 

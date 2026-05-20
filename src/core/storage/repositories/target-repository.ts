@@ -1,6 +1,11 @@
 import { STORE_NAMES } from '@/core/storage/database';
 import { IndexedDBRepository, runRequest } from '@/core/storage/indexeddb-repository';
-import type { BacklinkTarget, QueueRepository, TargetStatus } from '@/core/types/queue';
+import type {
+  BacklinkTarget,
+  QueueRepository,
+  SubmissionStatus,
+  TargetStatus
+} from '@/core/types/queue';
 
 export class IndexedDBTargetRepository
   extends IndexedDBRepository<BacklinkTarget>
@@ -37,6 +42,19 @@ export class IndexedDBTargetRepository
     await this.saveTarget({
       ...target,
       status,
+      updatedAt: Date.now()
+    });
+  }
+
+  async updateSubmissionStatus(id: string, status: SubmissionStatus): Promise<void> {
+    const target = await this.getTarget(id);
+    if (!target) {
+      throw new Error(`Target not found: ${id}`);
+    }
+
+    await this.saveTarget({
+      ...target,
+      submissionStatus: status,
       updatedAt: Date.now()
     });
   }

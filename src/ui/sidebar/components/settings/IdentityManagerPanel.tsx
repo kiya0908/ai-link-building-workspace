@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createId } from '@/shared/id';
 import { WorkspacePanel } from '@/ui/sidebar/components/sidebar/WorkspacePanel';
 import type { SidebarIdentity } from '@/ui/sidebar/types';
 
@@ -36,7 +37,7 @@ export function IdentityManagerPanel({
 
   const handleCreate = () => {
     onCreate({
-      id: crypto.randomUUID(),
+      id: createId(),
       name: '',
       email: '',
       website: ''
@@ -64,31 +65,32 @@ export function IdentityManagerPanel({
           {identities.map((identity) => (
             <li
               key={identity.id}
-              className={identity.id === currentIdentity.id ? 'is-active' : ''}
+              className={
+                identity.id === currentIdentity.id
+                  ? 'ai-link-queue__item ai-link-queue__item--manager is-active'
+                  : 'ai-link-queue__item ai-link-queue__item--manager'
+              }
             >
               <button
                 type="button"
-                className="ai-link-queue__button"
+                className="ai-link-queue__button ai-link-queue__button--manager"
                 onClick={() => onSwitch(identity.id)}
               >
                 <span className="ai-link-queue__main">
                   <strong>{identity.name || 'Unnamed'}</strong>
                   <small>{identity.email}</small>
                 </span>
-                {identity.id !== currentIdentity.id && (
-                  <button
-                    type="button"
-                    className="ai-link-icon-button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDelete(identity.id);
-                    }}
-                    title="Delete"
-                  >
-                    ×
-                  </button>
-                )}
               </button>
+              {identity.id !== currentIdentity.id && (
+                <button
+                  type="button"
+                  className="ai-link-icon-button"
+                  onClick={() => onDelete(identity.id)}
+                  title="Delete"
+                >
+                  x
+                </button>
+              )}
             </li>
           ))}
         </ul>

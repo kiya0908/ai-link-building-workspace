@@ -1,4 +1,4 @@
-import type { TargetStatus } from '@/core/types/queue';
+import type { SubmissionStatus, TargetStatus } from '@/core/types/queue';
 import type { TokenUsage } from '@/core/ai/ai-provider';
 import type { CommentValidationIssue } from '@/core/ai/comment-validator';
 import type { CommentMode } from '@/core/types/project';
@@ -24,6 +24,7 @@ export interface SidebarTarget {
   id: string;
   url: string;
   status: TargetStatus;
+  submissionStatus?: SubmissionStatus;
   projectId: string;
 }
 

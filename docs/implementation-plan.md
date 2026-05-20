@@ -84,15 +84,156 @@ Phase D — 增强 (P3)
 
 ---
 
-## 四、变更日志
+## 四、验证流程
+
+当前测试分三层看，不能只用一个“通过/不通过”判断所有修复：
+
+| 层级 | 命令或方式 | 能证明什么 | 不能证明什么 |
+|---|---|---|---|
+| 类型检查 | `pnpm run typecheck` | TypeScript类型、WXT生成类型、基础编译链路没有明显错误 | 不能证明浏览器扩展交互正确 |
+| 结构测试 | `pnpm test` | 文件、接口、模块边界、关键业务入口大体存在 | 不能证明真实DOM点击、content script注入、IndexedDB浏览器行为正确 |
+| 浏览器手动回归 | 安装本地扩展后按验证清单操作 | sidebar、content script、IndexedDB、页面事件、MV3生命周期是否符合预期 | 成本较高，需要固定步骤和记录 |
+
+每个修复项只允许使用以下验证状态：
+
+| 状态 | 含义 |
+|---|---|
+| 已修复未验证 | 代码已改，但还没有按清单验证 |
+| 自动化已验证 | `pnpm test` 或 `pnpm run typecheck` 覆盖到该项，并且通过 |
+| 手动已验证 | 已在浏览器扩展环境中按步骤验证通过 |
+| 验证失败 | 按清单复现后结果不符合预期，需要重新定位原因 |
+| 当前测试未覆盖 | 现有自动化测试无法覆盖，需要补手动用例或新增测试 |
+
+建议回归顺序：
+
+1. 先跑 `pnpm run typecheck` 和 `pnpm test`，确认基础质量没有退化。
+2. 再验证全部 P0。P0 不通过时，不继续验证 P1/P2/P3。
+3. P0 通过后，按 P1、P2、P3 顺序验证。
+4. 对“测试未通过”的项，先记录失败步骤和实际结果，再决定是修代码、改测试，还是补手动用例。
+
+---
+
+## 五、验证清单
+
+### P0 验证清单
+
+| # | 验证方式 | 最小步骤 | 期望结果 | 当前判定 |
+|---|---|---|---|---|
+| P0-1 | 自动化 + 手动 | 导入同一project的targets两次，第二次使用不同URL集合 | 队列只保留第二次导入的targets，不追加旧数据 | 已修复待手动复测：文件导入显式使用`replaceExisting: true`，后台仅在replace模式下清空当前project旧targets |
+| P0-2 | 手动 | 打开任意目标页面，点击Select Comment Box，再点击非评论框区域，然后继续点击页面按钮/链接/输入框 | 学习模式结束，页面正常交互，不需要按Escape恢复 | 当前测试未覆盖 |
+| P0-3 | 手动 | 导入一个target，点击Skip | target状态变为`skipped`，刷新或重新打开sidebar后状态仍保持 | 手动已验证 |
+
+### P1 验证清单
+
+| # | 验证方式 | 最小步骤 | 期望结果 | 当前判定 |
+|---|---|---|---|---|
+| P1-4 | 手动 | 在系统亮色和暗色主题下分别打开同一目标页面 | sidebar始终使用固定亮色样式，不随系统主题切换 | 手动已验证 |
+| P1-5 | 手动 + 构建产物检查 | 打开加载较慢的页面，观察DOM可用后sidebar出现时间 | DOM构建完成后sidebar即可出现，不等待完整页面资源加载 | 验证失败：`https://sns.jearn.jp/blog/blog.php?key=19`页面没有出现扩展sidebar；构建产物已为`run_at: "document_end"`，需继续查该站点content script注入失败原因 |
+| P1-6 | 手动 | 按A、B、C顺序导入targets，刷新sidebar | 队列显示顺序保持A、B、C | 已修复待手动复测：`QueueManager.list()`现在统一按`updatedAt`排序；文件导入时按文件顺序写入递增`updatedAt` |
+| P1-7 | 手动 | 对一个target依次执行Analyze/Generate/Fill | 状态依次更新到`analyzed`、`generated`、`filled`，刷新后仍保持 | 手动已验证 |
+| P1-8 | 手动 | 点击Select Comment Box后，点击sidebar内部按钮或设置入口 | sidebar点击不触发学习逻辑，也不写入错误selector | 当前测试未覆盖 |
+
+### P2 验证清单
+
+| # | 验证方式 | 最小步骤 | 期望结果 | 当前判定 |
+|---|---|---|---|---|
+| P2-9 | 手动 + 代码检查 | 为当前project配置默认Link Asset，分别使用html_link/plain_url/anchor模式执行Fill | 填充内容按`htmlCode`、`plainUrl`、`anchorText`优先级取值，缺失时才fallback | 已修复待手动复测：Settings新增Link Asset面板，Fill执行时会重新读取当前project默认Link Asset |
+| P2-10 | 手动 | 在Settings中新建、编辑、切换、删除Project | Project列表和当前活跃Project正确变化，刷新后仍保持 | 手动已验证 |
+| P2-11 | 手动 + 代码检查 | 在Settings中新建、编辑、切换、删除Identity | Identity列表和当前活跃Identity正确变化，刷新后仍保持 | 已修复待手动复测：`chrome.storage.local`现在持久化并恢复`identities`和`currentIdentityId` |
+| P2-12 | 手动 | 点击Queue里的`+`，手动输入URL和Notes并添加 | 新target进入当前project队列，刷新后仍存在 | 手动已验证 |
+| P2-13 | 手动 | 在真实或测试评论表单中Fill后提交评论 | 监听到提交或页面变化后，target状态自动变为`submitted` | 手动已验证 |
+
+### P3 验证清单
+
+| # | 验证方式 | 最小步骤 | 期望结果 | 当前判定 |
+|---|---|---|---|---|
+| P3-14 | 自动化 + 手动 | 使用无`document.lang`和无meta language的英文/中文测试页面执行文章提取 | 能从正文内容推断语言代码 | 当前测试未覆盖，建议补单元测试 |
+| P3-15 | 手动 + 代码检查 | 准备projects、identities、targets、linkAssets、history数据后执行完整数据库导出 | 导出的JSON包含所有store及对应记录 | 已修复待手动复测：Settings新增Database Export面板，按钮调用`exportFullDatabase()`并下载JSON |
+| P3-16 | 手动 | 准备两个以上Project，在sidebar header切换Project | 当前队列随Project切换刷新，不混入其他Project的targets | 手动已验证 |
+
+---
+
+## 六、本轮验证记录
+
+验证时间：2026-05-20
+
+使用数据：
+
+- `workspace-profile-example.json`
+- `backlink-targets-example.json`
+
+注意：`workspace-profile-example.json`里重复声明了`project`和`commentIdentity`键。按JSON解析规则，前一组会被后一组覆盖，实际可用数据是`doodle baseball`项目和对应身份。
+
+已执行：
+
+- `pnpm run build`：通过。
+- 使用`.output/chrome-mv3`作为未打包扩展启动独立Chrome。
+- 打开目标页`https://capturebilling.com/new-quality-aca-reporting-standards/`。
+- 通过调试端口检查页面DOM，未发现`#ai-link-building-workspace-sidebar-root`。
+
+结论：
+
+- 当前失败项里，P1-5、P2-9、P2-11、P3-15已经能从构建产物或代码路径确认问题。
+- P1-4和P1-6仍需要在sidebar成功注入后继续做真实UI验证。
+
+后续修复记录：
+
+- P2-9：新增`LinkAssetSettingsPanel`，用户可以在Settings里保存当前project的默认Link Asset；Fill时重新读取最新Link Asset，避免保存后缓存未刷新。
+- P2-11：`workspace-store.ts`持久化并恢复完整`identities`数组和`currentIdentityId`，刷新后多身份不再丢失。
+- P3-15：新增`DatabaseExportPanel`，用户可以从Settings导出完整IndexedDB数据。
+- P1-5：重新构建后manifest已输出`run_at: "document_end"`；独立测试Chrome仍未注入content script，需后续用真实浏览器扩展页面复测。
+- P0-1/P1-6：文件导入和手动添加拆分语义。文件导入使用`replaceExisting: true`覆盖当前project旧targets；手动添加使用`replaceExisting: false`追加单条target；队列列表统一按`updatedAt`排序。
+
+用户手动复测记录：
+
+- P1-4：手动测试通过。
+- P1-5：打开`https://sns.jearn.jp/blog/blog.php?key=19`时扩展没有出现。
+- P1-6：导入`backlink-targets-example.json`后显示顺序和文件顺序不一致。
+- P0-1：重新导入`backlink-targets-example.json`时出现追加旧targets的问题。
+
+---
+
+## 七、失败项处理规则
+
+遇到“验证失败”时，先不要直接继续改代码。按下面顺序记录：
+
+1. 失败编号，例如`P1-6`。
+2. 使用的浏览器页面或测试页面。
+3. 操作步骤。
+4. 期望结果。
+5. 实际结果。
+6. 控制台错误、扩展后台错误、IndexedDB实际数据。
+7. 初步归因：修复无效、测试步骤错误、扩展未重新加载、现有测试覆盖不到。
+
+只有确认是“修复无效”时，才进入下一轮代码修改。若是“扩展未重新加载”或“测试步骤错误”，只更新验证记录，不改代码。
+
+---
+
+## 八、建议补充的自动化测试
+
+| 优先级 | 覆盖目标 | 建议测试位置 | 说明 |
+|---|---|---|---|
+| 高 | P0-1、P1-6 | `tests/queue-system.test.mjs` | 增加导入覆盖旧targets、同批次导入顺序稳定的断言 |
+| 高 | P3-14 | `tests/dom-providers.test.mjs` 或新增 `tests/article-extractor.test.mjs` | 使用静态HTML文本验证语言fallback |
+| 中 | P3-15 | `tests/queue-system.test.mjs` | 检查`exportFullDatabase()`包含所有store名称 |
+| 中 | P2-9 | `tests/sidebar-ui.test.mjs` | 检查Fill逻辑引用Link Asset repository和commentMode分支 |
+| 低 | P0-2、P1-8 | 后续浏览器测试 | 这两项依赖真实DOM capture事件，文本级测试价值有限 |
+
+---
+
+## 九、变更日志
 
 | 日期 | 版本 | 内容 |
 |---|---|---|
 | 2026-05-20 | v0.1 | 初始审计：完成PRD对照分析，发现3个P0阻塞bug、5个P1体验问题、5个P2功能缺失、3个P3增强项，共16项。新增9个PRD模块（7.18-7.26）。 |
+| 2026-05-20 | v0.2 | 新增验证流程、分层测试说明、P0-P3验证清单、失败项处理规则和建议补充的自动化测试。 |
+| 2026-05-20 | v0.3 | 使用示例profile和targets验证失败项；记录P1-5构建产物仍为`document_idle`、P2-9缺少Link Asset录入入口、P2-11多身份未恢复、P3-15导出函数未连接UI入口。 |
+| 2026-05-20 | v0.4 | 修复P2-9、P2-11、P3-15；补充Link Asset设置面板、完整数据库导出面板、多身份持久化，并确认构建产物中content script为`document_end`。 |
+| 2026-05-20 | v0.5 | 根据手动复测结果修复P0-1和P1-6：文件导入覆盖旧targets、手动添加追加target、队列显示按导入顺序排序；记录P1-5在`sns.jearn.jp`页面仍未出现sidebar。 |
 
 ---
 
-## 五、参考文件
+## 十、参考文件
 
 | 文件 | 相关issues |
 |---|---|

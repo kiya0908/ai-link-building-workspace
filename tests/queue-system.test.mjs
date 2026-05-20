@@ -40,6 +40,7 @@ test('queue manager exposes persistence-safe workflow operations', () => {
   });
 
   assert.match(manager, /state\.activeProjectId === projectId/);
+  assert.match(manager, /return repository\.listTargets\(projectId\)\.then\(sortTargets\)/);
   assert.doesNotMatch(manager, /let\\s+current|serviceWorker|globalThis\\./);
 });
 
@@ -59,23 +60,32 @@ test('storage adapters exist for required persistent models', () => {
 test('queue import export supports JSON and CSV without AI or DOM logic', () => {
   const importExport = read('src/core/queue/queue-import-export.ts');
 
-  ['exportTargetsAsJson', 'exportTargetsAsCsv', 'parseTargetsFromJson', 'parseTargetsFromCsv'].forEach(
+  ['exportTargetsAsJson', 'exportTargetsAsCsv', 'parseTargetsFromJson', 'parseTargetsFromCsv', 'exportFullDatabase'].forEach(
     (functionName) => {
       assert.match(importExport, new RegExp(`function ${functionName}\\b|const ${functionName}\\b`));
     }
   );
 
+  assert.match(importExport, /openWorkspaceDatabase/);
+  assert.match(importExport, /objectStoreNames/);
   assert.doesNotMatch(importExport, /openrouter|querySelector|fillComment/i);
 });
 
 test('zustand queue store hydrates from queue manager instead of in-memory background state', () => {
   const queueStore = read('src/ui/sidebar/store/queue-store.ts');
   const backgroundHandlers = read('src/shared/messaging/background-handlers.ts');
+  const importMenu = read('src/ui/sidebar/components/queue/QueueTargetImportMenu.tsx');
+  const queueList = read('src/ui/sidebar/components/queue/QueueList.tsx');
 
   assert.match(queueStore, /hydrateQueue/);
   assert.match(queueStore, /createRuntimeMessageClient/);
   assert.match(queueStore, /QUEUE_HYDRATE/);
+  assert.match(queueStore, /replaceExisting/);
   assert.match(backgroundHandlers, /createIndexedDBQueueManager/);
   assert.match(backgroundHandlers, /QUEUE_IMPORT_TARGETS/);
+  assert.match(backgroundHandlers, /clearProjectTargets/);
+  assert.match(backgroundHandlers, /shouldReplace/);
+  assert.match(importMenu, /replaceExisting: true/);
+  assert.match(queueList, /replaceExisting: false/);
   assert.doesNotMatch(queueStore, /chrome\\.storage|localStorage/);
 });

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { createId } from '@/shared/id';
 import type { GenerateCommentResponse } from '@/shared/messaging/messages';
 import type {
   CommentState,
@@ -17,6 +18,7 @@ interface WorkspaceStore {
   projects: SidebarProject[];
   currentProject: SidebarProject;
   identities: SidebarIdentity[];
+  projectIdentityIds: Record<string, string>;
   currentIdentityId: string;
   identity: SidebarIdentity;
   queueItems: QueueItem[];
@@ -70,6 +72,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       website: 'https://dogagecalculator.info'
     }
   ],
+  projectIdentityIds: {
+    'project-1': 'identity-1'
+  },
   currentIdentityId: 'identity-1',
   identity: {
     id: 'identity-1',
@@ -112,6 +117,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       isHydrated: true,
       projects: stored.projects,
       currentProject: stored.currentProject,
+      identities: stored.identities,
+      projectIdentityIds: stored.projectIdentityIds,
+      currentIdentityId: stored.currentIdentityId,
       identity: stored.identity,
       commentState: {
         ...state.commentState,
@@ -122,9 +130,17 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   toggle: () => set((state) => ({ isOpen: !state.isOpen })),
   createWorkspaceProfile: (project, identity) =>
     set((state) => {
+      const nextIdentities = upsertIdentity(state.identities, identity);
+      const nextProjectIdentityIds = {
+        ...state.projectIdentityIds,
+        [project.id]: identity.id
+      };
       const nextState = {
         projects: [...state.projects, project],
         currentProject: project,
+        identities: nextIdentities,
+        projectIdentityIds: nextProjectIdentityIds,
+        currentIdentityId: identity.id,
         identity
       };
       void saveStoredWorkspace(nextState);
@@ -143,14 +159,31 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     }),
   setIdentity: (identity) =>
     set((state) => {
+      const projectScopedIdentity = createProjectScopedIdentity(
+        state.projects,
+        state.projectIdentityIds,
+        state.currentProject.id,
+        identity
+      );
+      const nextIdentities = upsertIdentity(state.identities, projectScopedIdentity);
+      const nextProjectIdentityIds = {
+        ...state.projectIdentityIds,
+        [state.currentProject.id]: projectScopedIdentity.id
+      };
       const nextState = {
         projects: state.projects,
         currentProject: state.currentProject,
-        identity
+        identities: nextIdentities,
+        projectIdentityIds: nextProjectIdentityIds,
+        currentIdentityId: projectScopedIdentity.id,
+        identity: projectScopedIdentity
       };
       void saveStoredWorkspace(nextState);
       return {
-        identity,
+        identities: nextIdentities,
+        projectIdentityIds: nextProjectIdentityIds,
+        currentIdentityId: projectScopedIdentity.id,
+        identity: projectScopedIdentity,
         status: {
           label: 'Identity saved',
           detail: 'Name, email, and website will be used when filling comment forms.',
@@ -232,13 +265,25 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       if (!project) {
         return state;
       }
+      const identityId = state.projectIdentityIds[project.id] ?? state.currentIdentityId;
+      const identity = state.identities.find((item) => item.id === identityId) ?? state.identity;
       const nextState = {
-        ...state,
-        currentProject: project
+        projects: state.projects,
+        currentProject: project,
+        identities: state.identities,
+        projectIdentityIds: {
+          ...state.projectIdentityIds,
+          [project.id]: identity.id
+        },
+        currentIdentityId: identity.id,
+        identity
       };
       void saveStoredWorkspace(nextState);
       return {
         currentProject: project,
+        projectIdentityIds: nextState.projectIdentityIds,
+        currentIdentityId: identity.id,
+        identity,
         commentState: {
           ...state.commentState,
           mode: project.defaultCommentMode
@@ -257,10 +302,19 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         state.currentProject.id === projectId
           ? (nextProjects[0] ?? state.currentProject)
           : state.currentProject;
+      const nextProjectIdentityIds = Object.fromEntries(
+        Object.entries(state.projectIdentityIds).filter(([mappedProjectId]) => mappedProjectId !== projectId)
+      );
+      const nextIdentityId = nextProjectIdentityIds[nextCurrent.id] ?? state.currentIdentityId;
+      const nextIdentity =
+        state.identities.find((item) => item.id === nextIdentityId) ?? state.identity;
       const nextState = {
         projects: nextProjects,
         currentProject: nextCurrent,
-        identity: state.identity
+        identities: state.identities,
+        projectIdentityIds: nextProjectIdentityIds,
+        currentIdentityId: nextIdentity.id,
+        identity: nextIdentity
       };
       void saveStoredWorkspace(nextState);
       return {
@@ -282,6 +336,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       const nextState = {
         projects: nextProjects,
         currentProject: nextCurrent,
+        identities: state.identities,
+        projectIdentityIds: state.projectIdentityIds,
+        currentIdentityId: state.currentIdentityId,
         identity: state.identity
       };
       void saveStoredWorkspace(nextState);
@@ -301,12 +358,21 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         return state;
       }
       const nextState = {
-        ...state,
+        projects: state.projects,
+        currentProject: state.currentProject,
+        identities: state.identities,
+        projectIdentityIds: {
+          ...state.projectIdentityIds,
+          [state.currentProject.id]: identity.id
+        },
+        currentIdentityId: identity.id,
         identity
       };
       void saveStoredWorkspace(nextState);
       return {
+        currentIdentityId: identity.id,
         identity,
+        projectIdentityIds: nextState.projectIdentityIds,
         status: {
           label: 'Identity switched',
           detail: `${identity.name || 'Unnamed'} is now the active identity.`,
@@ -317,14 +383,23 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   createIdentity: (identity) =>
     set((state) => {
       const nextIdentities = [...state.identities, identity];
+      const nextProjectIdentityIds = {
+        ...state.projectIdentityIds,
+        [state.currentProject.id]: identity.id
+      };
       const nextState = {
-        ...state,
+        projects: state.projects,
+        currentProject: state.currentProject,
         identities: nextIdentities,
+        projectIdentityIds: nextProjectIdentityIds,
+        currentIdentityId: identity.id,
         identity
       };
       void saveStoredWorkspace(nextState);
       return {
         identities: nextIdentities,
+        projectIdentityIds: nextProjectIdentityIds,
+        currentIdentityId: identity.id,
         identity,
         status: {
           label: 'Identity created',
@@ -340,14 +415,25 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         state.identity.id === identityId
           ? (nextIdentities[0] ?? state.identity)
           : state.identity;
+      const nextProjectIdentityIds = Object.fromEntries(
+        Object.entries(state.projectIdentityIds).map(([projectId, mappedIdentityId]) => [
+          projectId,
+          mappedIdentityId === identityId ? nextIdentity.id : mappedIdentityId
+        ])
+      );
       const nextState = {
-        ...state,
+        projects: state.projects,
+        currentProject: state.currentProject,
         identities: nextIdentities,
+        projectIdentityIds: nextProjectIdentityIds,
+        currentIdentityId: nextIdentity.id,
         identity: nextIdentity
       };
       void saveStoredWorkspace(nextState);
       return {
         identities: nextIdentities,
+        projectIdentityIds: nextProjectIdentityIds,
+        currentIdentityId: nextIdentity.id,
         identity: nextIdentity,
         status: {
           label: 'Identity deleted',
@@ -381,16 +467,68 @@ const WORKSPACE_STORAGE_KEY = 'workspaceProfileState';
 interface StoredWorkspaceState {
   projects: SidebarProject[];
   currentProject: SidebarProject;
+  identities: SidebarIdentity[];
+  projectIdentityIds: Record<string, string>;
+  currentIdentityId: string;
   identity: SidebarIdentity;
 }
 
 async function loadStoredWorkspace(): Promise<StoredWorkspaceState | null> {
   const stored = await chrome.storage.local.get(WORKSPACE_STORAGE_KEY);
-  return (stored[WORKSPACE_STORAGE_KEY] as StoredWorkspaceState | undefined) ?? null;
+  const value = stored[WORKSPACE_STORAGE_KEY] as Partial<StoredWorkspaceState> | undefined;
+  if (!value?.projects || !value.currentProject || !value.identity) {
+    return null;
+  }
+
+  const identities = value.identities?.length ? value.identities : [value.identity];
+  const currentIdentityId = value.currentIdentityId ?? value.identity.id;
+  const identity = identities.find((item) => item.id === currentIdentityId) ?? value.identity;
+  const projectIdentityIds = value.projectIdentityIds ?? {
+    [value.currentProject.id]: identity.id
+  };
+
+  return {
+    projects: value.projects,
+    currentProject: value.currentProject,
+    identities,
+    projectIdentityIds,
+    currentIdentityId: identity.id,
+    identity
+  };
 }
 
 async function saveStoredWorkspace(state: StoredWorkspaceState): Promise<void> {
   await chrome.storage.local.set({
     [WORKSPACE_STORAGE_KEY]: state
   });
+}
+
+function upsertIdentity(identities: SidebarIdentity[], identity: SidebarIdentity): SidebarIdentity[] {
+  const exists = identities.some((item) => item.id === identity.id);
+  if (!exists) {
+    return [...identities, identity];
+  }
+
+  return identities.map((item) => (item.id === identity.id ? identity : item));
+}
+
+function createProjectScopedIdentity(
+  projects: SidebarProject[],
+  projectIdentityIds: Record<string, string>,
+  currentProjectId: string,
+  identity: SidebarIdentity
+): SidebarIdentity {
+  const isSharedWithAnotherProject = projects.some(
+    (project) =>
+      project.id !== currentProjectId &&
+      (projectIdentityIds[project.id] ?? identity.id) === identity.id
+  );
+  if (!isSharedWithAnotherProject) {
+    return identity;
+  }
+
+  return {
+    ...identity,
+    id: createId()
+  };
 }

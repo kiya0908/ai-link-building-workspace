@@ -26,8 +26,10 @@ export function WorkspaceProfileImportMenu({ onImport, onError }: WorkspaceProfi
     file
       .text()
       .then((content) => {
-        const profile = parseWorkspaceProfileFile(file.name, content);
-        onImport(profile.project, profile.identity);
+        const profiles = parseWorkspaceProfileFile(file.name, content);
+        profiles.forEach((profile) => {
+          onImport(profile.project, profile.identity);
+        });
         setOpen(false);
       })
       .catch((error: unknown) => {

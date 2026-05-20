@@ -73,6 +73,8 @@ test('settings window separates project, identity, and AI settings from main wor
 
   assert.match(sidebarApp, /SettingsWindow/);
   assert.match(settingsWindow, /WorkspaceProfilePanel/);
+  assert.match(settingsWindow, /LinkAssetSettingsPanel/);
+  assert.match(settingsWindow, /DatabaseExportPanel/);
   assert.match(settingsWindow, /AISettingsPanel/);
   assert.match(profilePanel, /Workspace Profile/);
   assert.match(profilePanel, /Project/);
@@ -83,15 +85,59 @@ test('settings window separates project, identity, and AI settings from main wor
   });
 });
 
+test('settings expose link asset editing and full database export', () => {
+  const linkAssetPanel = read('src/ui/sidebar/components/settings/LinkAssetSettingsPanel.tsx');
+  const databaseExportPanel = read('src/ui/sidebar/components/settings/DatabaseExportPanel.tsx');
+  const sidebarApp = read('src/ui/sidebar/SidebarApp.tsx');
+
+  assert.match(linkAssetPanel, /Save Link Asset/);
+  assert.match(linkAssetPanel, /createIndexedDBLinkAssetRepository/);
+  ['Anchor Text', 'HTML Code', 'Plain URL'].forEach((label) => {
+    assert.match(linkAssetPanel, new RegExp(label));
+  });
+
+  assert.match(databaseExportPanel, /Export Full Database JSON/);
+  assert.match(databaseExportPanel, /QUEUE_EXPORT_FULL_DATABASE/);
+  assert.match(sidebarApp, /QUEUE_EXPORT_TARGETS_CSV/);
+  assert.match(sidebarApp, /getDefaultForProject\(currentProject\.id\)/);
+});
+
+test('workspace store persists the full identity collection', () => {
+  const store = read('src/ui/sidebar/store/workspace-store.ts');
+
+  assert.match(store, /identities: stored\.identities/);
+  assert.match(store, /projectIdentityIds: stored\.projectIdentityIds/);
+  assert.match(store, /currentIdentityId: stored\.currentIdentityId/);
+  assert.match(store, /upsertIdentity/);
+  assert.match(store, /currentIdentityId: identity\.id/);
+});
+
+test('workspace store binds the active identity to each project', () => {
+  const store = read('src/ui/sidebar/store/workspace-store.ts');
+
+  assert.match(store, /projectIdentityIds: Record<string, string>/);
+  assert.match(store, /\[state\.currentProject\.id\]: identity\.id/);
+  assert.match(store, /state\.projectIdentityIds\[project\.id\] \?\? state\.currentIdentityId/);
+  assert.match(store, /\[project\.id\]: identity\.id/);
+  assert.match(store, /value\.projectIdentityIds \?\? {/);
+  assert.match(store, /createProjectScopedIdentity/);
+  assert.match(store, /isSharedWithAnotherProject/);
+  assert.match(store, /projectIdentityIds\[project\.id\] \?\? identity\.id/);
+  assert.match(store, /createId\(\)/);
+});
+
 test('workspace profile supports file import and example downloads', () => {
   const importMenu = read('src/ui/sidebar/components/settings/WorkspaceProfileImportMenu.tsx');
   const parser = read('src/core/workspace/workspace-profile-import.ts');
   const store = read('src/ui/sidebar/store/workspace-store.ts');
 
   assert.match(importMenu, /type="file"/);
+  assert.match(importMenu, /profiles\.forEach/);
   assert.match(importMenu, /Download JSON Example/);
   assert.match(importMenu, /Download CSV Example/);
   assert.match(parser, /commentMode/);
+  assert.match(parser, /profiles/);
+  assert.match(parser, /\.\.\.rows/);
   assert.match(parser, /projectBrand,projectWebsite,projectDescription,commentMode,identityName,identityEmail,identityWebsite/);
   assert.match(store, /createWorkspaceProfile/);
 });
@@ -105,6 +151,7 @@ test('queue list supports backlink target URL file import', () => {
 
   assert.match(queueList, /QueueTargetImportMenu/);
   assert.match(queueList, /onOpen/);
+  assert.match(queueList, /Export Queue Targets CSV/);
   assert.match(queueList, /ai-link-queue__button/);
   assert.match(importMenu, /Import Targets JSON\/CSV/);
   assert.match(importMenu, /parseTargetsFromCsv/);

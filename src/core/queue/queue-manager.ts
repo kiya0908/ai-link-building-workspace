@@ -5,6 +5,7 @@ import type {
   QueueState,
   QueueStateRepository,
   QueueStatistics,
+  SubmissionStatus,
   TargetStatus
 } from '@/core/types/queue';
 import { DEFAULT_QUEUE_STATE_ID } from '@/core/storage/repositories/queue-state-repository';
@@ -15,6 +16,7 @@ export interface QueueManager {
   openTarget(targetId: string): Promise<BacklinkTarget>;
   openNextTarget(projectId: string): Promise<BacklinkTarget | null>;
   updateStatus(targetId: string, status: TargetStatus): Promise<void>;
+  updateSubmissionStatus(targetId: string, status: SubmissionStatus): Promise<void>;
   markStatus(targetId: string, status: TargetStatus): Promise<void>;
   skipTarget(targetId: string): Promise<void>;
   retryTarget(targetId: string): Promise<void>;
@@ -33,7 +35,7 @@ export function createQueueManager(
 
   return {
     list(projectId) {
-      return repository.listTargets(projectId);
+      return repository.listTargets(projectId).then(sortTargets);
     },
     saveTarget(target) {
       return repository.saveTarget(target);
@@ -75,6 +77,9 @@ export function createQueueManager(
     },
     async updateStatus(targetId, status) {
       return updateStatus(targetId, status);
+    },
+    updateSubmissionStatus(targetId, status) {
+      return repository.updateSubmissionStatus(targetId, status);
     },
     markStatus(targetId, status) {
       return updateStatus(targetId, status);

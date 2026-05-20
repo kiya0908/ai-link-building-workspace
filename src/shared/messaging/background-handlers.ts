@@ -2,6 +2,7 @@ import { loadOpenRouterConfig } from '@/core/ai/adapters/openrouter-config';
 import { createCommentHistoryEntry, generateReviewedComment } from '@/core/ai/generation-workflow';
 import { OpenRouterProvider } from '@/core/ai/providers/openrouter-provider';
 import { createIndexedDBQueueManager } from '@/core/queue/indexeddb-queue-manager';
+import { exportFullDatabase, exportTargetsAsCsv } from '@/core/queue/queue-import-export';
 import { createIndexedDBCommentHistoryRepository } from '@/core/storage/repositories/comment-history-repository';
 import type {
   QueueSnapshotResponse,
@@ -64,15 +65,14 @@ export function createBackgroundMessageHandlers(): RuntimeMessageHandler[] {
 
         if (message.type === 'QUEUE_IMPORT_TARGETS') {
           const projectId = message.payload.targets[0]?.projectId ?? null;
-          if (projectId) {
+          const shouldReplace = message.payload.replaceExisting ?? true;
+          if (projectId && shouldReplace) {
             await queueManager.clearProjectTargets(projectId);
           }
           const now = Date.now();
-          await Promise.all(
-            message.payload.targets.map((target, index) =>
-              queueManager.saveTarget({ ...target, updatedAt: now + index })
-            )
-          );
+          for (const [index, target] of message.payload.targets.entries()) {
+            await queueManager.saveTarget({ ...target, projectId: target.projectId || projectId || '', updatedAt: now + index });
+          }
           return createQueueSnapshot(projectId, null);
         }
 
@@ -92,6 +92,12 @@ export function createBackgroundMessageHandlers(): RuntimeMessageHandler[] {
           return createQueueSnapshot(state.activeProjectId, state.currentTargetId);
         }
 
+        if (message.type === 'QUEUE_UPDATE_SUBMISSION_STATUS') {
+          await queueManager.updateSubmissionStatus(message.payload.targetId, message.payload.status);
+          const state = await queueManager.restoreState();
+          return createQueueSnapshot(state.activeProjectId, state.currentTargetId);
+        }
+
         if (message.type === 'QUEUE_FILTER') {
           const targets = await queueManager.filterTargets(message.payload.filter);
           const state = await queueManager.restoreState(message.payload.filter.projectId);
@@ -102,6 +108,14 @@ export function createBackgroundMessageHandlers(): RuntimeMessageHandler[] {
               ? await queueManager.getStatistics(state.activeProjectId)
               : emptyStatistics()
           } satisfies QueueSnapshotResponse;
+        }
+
+        if (message.type === 'QUEUE_EXPORT_TARGETS_CSV') {
+          return exportTargetsAsCsv(await queueManager.list(message.payload.projectId));
+        }
+
+        if (message.type === 'QUEUE_EXPORT_FULL_DATABASE') {
+          return exportFullDatabase();
         }
 
         return {

@@ -56,6 +56,7 @@ export function SidebarApp() {
   const openTarget = useQueueStore((state) => state.openTarget);
   const openNextTarget = useQueueStore((state) => state.openNextTarget);
   const updateTargetStatus = useQueueStore((state) => state.updateStatus);
+  const updateSubmissionStatus = useQueueStore((state) => state.updateSubmissionStatus);
   const persistedTargets = useQueueStore((state) => state.targets);
   const persistedCurrentTargetId = useQueueStore((state) => state.currentTargetId);
   const manualLearningSession = useRef<ManualLearningSession | null>(null);
@@ -101,6 +102,7 @@ export function SidebarApp() {
       projectId: target.projectId,
       url: target.url,
       status: target.status,
+      submissionStatus: target.submissionStatus ?? 'unknown',
       title: target.url,
       domain: getHostname(target.url),
       position: index + 1
@@ -194,27 +196,33 @@ export function SidebarApp() {
         return;
       }
 
-      const websiteValue =
-        (commentState.mode === 'html_link' && linkAsset?.htmlCode) ||
-        (commentState.mode === 'plain_url' && linkAsset?.plainUrl) ||
-        linkAsset?.anchorText ||
-        identity.website ||
-        currentProject.website;
+      createIndexedDBLinkAssetRepository()
+        .getDefaultForProject(currentProject.id)
+        .catch(() => linkAsset)
+        .then((latestLinkAsset) => {
+          const websiteValue =
+            (commentState.mode === 'html_link' && latestLinkAsset?.htmlCode) ||
+            (commentState.mode === 'plain_url' && latestLinkAsset?.plainUrl) ||
+            latestLinkAsset?.anchorText ||
+            identity.website ||
+            currentProject.website;
 
-      provider.fillFields({
-        comment: commentState.draft,
-        name: identity.name,
-        email: identity.email,
-        website: websiteValue
-      });
-      provider.scrollToComment();
+          setLinkAsset(latestLinkAsset);
+          provider.fillFields({
+            comment: commentState.draft,
+            name: identity.name,
+            email: identity.email,
+            website: websiteValue
+          });
+          provider.scrollToComment();
 
-      const targetId = visibleActiveItemId ?? window.location.href;
-      updateTargetStatus(targetId, 'filled').catch(() => {
-        // Silently ignore status update failures
-      });
+          const targetId = visibleActiveItemId ?? window.location.href;
+          updateTargetStatus(targetId, 'filled').catch(() => {
+            // Silently ignore status update failures
+          });
 
-      setActionSuccess('Comment filled', 'Review the page fields and submit manually when ready.');
+          setActionSuccess('Comment filled', 'Review the page fields and submit manually when ready.');
+        });
       return;
     }
 
@@ -314,6 +322,25 @@ export function SidebarApp() {
                     setActionSuccess('Targets imported', `${targets.length} backlink targets were added.`);
                   })
                 }
+                onSubmissionStatusChange={(targetId, status) =>
+                  updateSubmissionStatus(targetId, status).then(() => {
+                    setActionSuccess('Submission result saved', `Target marked as ${status}.`);
+                  })
+                }
+                onExport={() => {
+                  runtimeClient
+                    .send<string>({
+                      type: 'QUEUE_EXPORT_TARGETS_CSV',
+                      payload: { projectId: currentProject.id }
+                    })
+                    .then((content) => {
+                      downloadFile(content, `ai-link-queue-targets-${Date.now()}.csv`, 'text/csv');
+                      setActionSuccess('Queue targets export started', 'The current project queue was exported.');
+                    })
+                    .catch((error: unknown) => {
+                      setActionError(error instanceof Error ? error.message : 'Unable to export queue targets.');
+                    });
+                }}
                 onImportError={setActionError}
               />
               <ArticleAnalysisPanel
@@ -374,4 +401,14 @@ function getHostname(url: string): string {
   } catch {
     return url;
   }
+}
+
+function downloadFile(content: string, filename: string, type: string): void {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }

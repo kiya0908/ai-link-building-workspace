@@ -9,25 +9,43 @@ export interface WorkspaceProfileImport {
 const VALID_COMMENT_MODES = ['soft_mention', 'plain_url', 'html_link'] as const satisfies readonly CommentMode[];
 
 export const WORKSPACE_PROFILE_JSON_EXAMPLE = {
-  project: {
-    brand: 'Dog Age Calculator',
-    website: 'https://dogagecalculator.info',
-    description: 'Accurate dog age calculator based on AVMA guidelines.',
-    commentMode: 'soft_mention'
-  },
-  commentIdentity: {
-    name: 'Alex',
-    email: 'alex@example.com',
-    website: 'https://dogagecalculator.info'
-  }
+  profiles: [
+    {
+      project: {
+        brand: 'Playlist Name Generator',
+        website: 'https://playlistnameai.org',
+        description: 'Playlist title generator for Spotify, Apple Music, and YouTube Music users.',
+        commentMode: 'soft_mention'
+      },
+      commentIdentity: {
+        name: 'playlist name generator',
+        email: 'support@playlistnameai.org',
+        website: 'https://playlistnameai.org'
+      }
+    },
+    {
+      project: {
+        brand: 'Doodle Baseball',
+        website: 'https://doodlebaseball.info',
+        description: 'Browser game site for Doodle Baseball fans.',
+        commentMode: 'soft_mention'
+      },
+      commentIdentity: {
+        name: 'doodle baseball',
+        email: 'support@doodlebaseball.info',
+        website: 'https://doodlebaseball.info'
+      }
+    }
+  ]
 };
 
 export const WORKSPACE_PROFILE_CSV_EXAMPLE = [
   'projectBrand,projectWebsite,projectDescription,commentMode,identityName,identityEmail,identityWebsite',
-  'Dog Age Calculator,https://dogagecalculator.info,Accurate dog age calculator based on AVMA guidelines.,soft_mention,Alex,alex@example.com,https://dogagecalculator.info'
+  'Playlist Name Generator,https://playlistnameai.org,"Playlist title generator for Spotify, Apple Music, and YouTube Music users.",soft_mention,playlist name generator,support@playlistnameai.org,https://playlistnameai.org',
+  'Doodle Baseball,https://doodlebaseball.info,Browser game site for Doodle Baseball fans.,soft_mention,doodle baseball,support@doodlebaseball.info,https://doodlebaseball.info'
 ].join('\n');
 
-export function parseWorkspaceProfileFile(fileName: string, content: string): WorkspaceProfileImport {
+export function parseWorkspaceProfileFile(fileName: string, content: string): WorkspaceProfileImport[] {
   if (fileName.toLowerCase().endsWith('.json')) {
     return parseWorkspaceProfileJson(content);
   }
@@ -43,8 +61,47 @@ export function createCsvExampleContent(): string {
   return WORKSPACE_PROFILE_CSV_EXAMPLE;
 }
 
-function parseWorkspaceProfileJson(content: string): WorkspaceProfileImport {
-  const parsed = JSON.parse(content) as {
+function parseWorkspaceProfileJson(content: string): WorkspaceProfileImport[] {
+  const parsed = JSON.parse(content) as unknown;
+  const records = getJsonProfileRecords(parsed);
+  if (!records.length) {
+    throw new Error('Workspace profile JSON must include at least one profile.');
+  }
+
+  return records.map((record) => normalizeWorkspaceProfile({
+    projectBrand: record.project?.brand,
+    projectWebsite: record.project?.website,
+    projectDescription: record.project?.description,
+    commentMode: record.project?.commentMode,
+    identityName: record.commentIdentity?.name,
+    identityEmail: record.commentIdentity?.email,
+    identityWebsite: record.commentIdentity?.website
+  }));
+}
+
+function getJsonProfileRecords(value: unknown): Array<{
+  project?: Partial<{
+    brand: string;
+    website: string;
+    description: string;
+    commentMode: CommentMode;
+  }>;
+  commentIdentity?: Partial<{
+    name: string;
+    email: string;
+    website: string;
+  }>;
+}> {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+
+  const parsed = value as {
+    profiles?: unknown;
     project?: Partial<{
       brand: string;
       website: string;
@@ -58,27 +115,27 @@ function parseWorkspaceProfileJson(content: string): WorkspaceProfileImport {
     }>;
   };
 
-  return normalizeWorkspaceProfile({
-    projectBrand: parsed.project?.brand,
-    projectWebsite: parsed.project?.website,
-    projectDescription: parsed.project?.description,
-    commentMode: parsed.project?.commentMode,
-    identityName: parsed.commentIdentity?.name,
-    identityEmail: parsed.commentIdentity?.email,
-    identityWebsite: parsed.commentIdentity?.website
-  });
+  if (Array.isArray(parsed.profiles)) {
+    return parsed.profiles as ReturnType<typeof getJsonProfileRecords>;
+  }
+
+  return [parsed];
 }
 
-function parseWorkspaceProfileCsv(content: string): WorkspaceProfileImport {
-  const [headerLine, firstRow] = content.trim().split(/\r?\n/);
-  if (!headerLine || !firstRow) {
+function parseWorkspaceProfileCsv(content: string): WorkspaceProfileImport[] {
+  const [headerLine, ...rows] = content.trim().split(/\r?\n/);
+  if (!headerLine || rows.length === 0) {
     throw new Error('Workspace profile CSV must include a header and one data row.');
   }
 
   const headers = parseCsvRow(headerLine);
-  const values = parseCsvRow(firstRow);
-  const record = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? '']));
-  return normalizeWorkspaceProfile(record);
+  return rows
+    .filter((row) => row.trim())
+    .map((row) => {
+      const values = parseCsvRow(row);
+      const record = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? '']));
+      return normalizeWorkspaceProfile(record);
+    });
 }
 
 function normalizeWorkspaceProfile(record: Record<string, unknown>): WorkspaceProfileImport {

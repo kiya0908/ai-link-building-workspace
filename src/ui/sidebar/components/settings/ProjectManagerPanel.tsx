@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createId } from '@/shared/id';
 import { WorkspacePanel } from '@/ui/sidebar/components/sidebar/WorkspacePanel';
 import type { SidebarProject } from '@/ui/sidebar/types';
 
@@ -42,7 +43,7 @@ export function ProjectManagerPanel({
   };
 
   const handleCreate = () => {
-    const id = crypto.randomUUID();
+    const id = createId();
     onCreate({
       id,
       name: `Project ${projects.length + 1}`,
@@ -74,31 +75,32 @@ export function ProjectManagerPanel({
           {projects.map((project) => (
             <li
               key={project.id}
-              className={project.id === currentProject.id ? 'is-active' : ''}
+              className={
+                project.id === currentProject.id
+                  ? 'ai-link-queue__item ai-link-queue__item--manager is-active'
+                  : 'ai-link-queue__item ai-link-queue__item--manager'
+              }
             >
               <button
                 type="button"
-                className="ai-link-queue__button"
+                className="ai-link-queue__button ai-link-queue__button--manager"
                 onClick={() => onSwitch(project.id)}
               >
                 <span className="ai-link-queue__main">
                   <strong>{project.brand}</strong>
                   <small>{project.website}</small>
                 </span>
-                {project.id !== currentProject.id && (
-                  <button
-                    type="button"
-                    className="ai-link-icon-button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDelete(project.id);
-                    }}
-                    title="Delete"
-                  >
-                    ×
-                  </button>
-                )}
               </button>
+              {project.id !== currentProject.id && (
+                <button
+                  type="button"
+                  className="ai-link-icon-button"
+                  onClick={() => onDelete(project.id)}
+                  title="Delete"
+                >
+                  x
+                </button>
+              )}
             </li>
           ))}
         </ul>

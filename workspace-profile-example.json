@@ -1,13 +1,30 @@
 {
-  "project": {
-    "brand": "playlist name generator",
-    "website": "https://playlistnameai.org",
-    "description": "If you’re tired of coming up with boring music playlist titles, I recommend using a great playlist name generator. It can create unique, aesthetic and vibe-matching playlist names in one click, perfect for Spotify, Apple Music and YouTube Music lovers. Really handy tool for anyone who loves making custom playlists.",
-    "commentMode": "soft_mention"
-  },
-  "commentIdentity": {
-    "name": "playlist name generator",
-    "email": "support@playlistnameai.org",
-    "website": "https://playlistnameai.org"
-  }
+  "profiles": [
+    {
+      "project": {
+        "brand": "Playlist Name Generator",
+        "website": "https://playlistnameai.org",
+        "description": "Playlist title generator for Spotify, Apple Music, and YouTube Music users.",
+        "commentMode": "soft_mention"
+      },
+      "commentIdentity": {
+        "name": "playlist name generator",
+        "email": "support@playlistnameai.org",
+        "website": "https://playlistnameai.org"
+      }
+    },
+    {
+      "project": {
+        "brand": "Doodle Baseball",
+        "website": "https://doodlebaseball.info",
+        "description": "Browser game site for Doodle Baseball fans.",
+        "commentMode": "soft_mention"
+      },
+      "commentIdentity": {
+        "name": "doodle baseball",
+        "email": "support@doodlebaseball.info",
+        "website": "https://doodlebaseball.info"
+      }
+    }
+  ]
 }

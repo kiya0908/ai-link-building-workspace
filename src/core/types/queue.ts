@@ -23,10 +23,26 @@ export const TARGET_STATUSES = [
   'skipped'
 ] as const satisfies readonly TargetStatus[];
 
+export type SubmissionStatus =
+  | 'unknown'
+  | 'submitted'
+  | 'indexed'
+  | 'pending_review'
+  | 'rejected';
+
+export const SUBMISSION_STATUSES = [
+  'unknown',
+  'submitted',
+  'indexed',
+  'pending_review',
+  'rejected'
+] as const satisfies readonly SubmissionStatus[];
+
 export interface BacklinkTarget {
   id: string;
   url: string;
   status: TargetStatus;
+  submissionStatus?: SubmissionStatus;
   language: string;
   commentSystem: string;
   qualityScore: number;
@@ -61,6 +77,7 @@ export interface QueueRepository {
   getTarget(id: string): Promise<BacklinkTarget | null>;
   saveTarget(target: BacklinkTarget): Promise<void>;
   updateTargetStatus(id: string, status: TargetStatus): Promise<void>;
+  updateSubmissionStatus(id: string, status: SubmissionStatus): Promise<void>;
   clearProjectTargets(projectId: string): Promise<void>;
 }
 
