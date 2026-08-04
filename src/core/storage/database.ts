@@ -1,5 +1,5 @@
 export const DATABASE_NAME = 'ai-link-building-workspace';
-export const DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 3;
 
 export const STORE_NAMES = {
   projects: 'projects',
@@ -8,7 +8,8 @@ export const STORE_NAMES = {
   targets: 'targets',
   queueState: 'queueState',
   siteLearning: 'siteLearning',
-  commentHistory: 'commentHistory'
+  commentHistory: 'commentHistory',
+  automationState: 'automationState'
 } as const;
 
 export type StoreName = (typeof STORE_NAMES)[keyof typeof STORE_NAMES];
@@ -35,6 +36,7 @@ export function openWorkspaceDatabase(): Promise<IDBDatabase> {
       createIndex(targets, 'projectIdStatus', ['projectId', 'status']);
 
       createStore(database, transaction, STORE_NAMES.queueState, { keyPath: 'id' });
+      createStore(database, transaction, STORE_NAMES.automationState, { keyPath: 'id' });
       createStore(database, transaction, STORE_NAMES.siteLearning, { keyPath: 'domain' });
 
       const commentHistory = createStore(database, transaction, STORE_NAMES.commentHistory, {

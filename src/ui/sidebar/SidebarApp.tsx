@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { extractArticle } from '@/core/article/article-extractor';
 import { detectDefaultProvider } from '@/content/dom/provider-registry';
-import { startAutoSubmitDetector } from '@/core/dom/auto-submit-detector';
+import { runPageAutomation } from '@/core/automation/page-automation-workflow';
+import type { AutomationMode, AutomationSession } from '@/core/types/automation';
 import {
   startManualLearning,
   storeLearnedSelector,
@@ -60,7 +61,10 @@ export function SidebarApp() {
   const persistedTargets = useQueueStore((state) => state.targets);
   const persistedCurrentTargetId = useQueueStore((state) => state.currentTargetId);
   const manualLearningSession = useRef<ManualLearningSession | null>(null);
+  const automationStartedForPage = useRef(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [automationMode, setAutomationMode] = useState<AutomationMode>('auto_submit');
+  const [automationSession, setAutomationSession] = useState<AutomationSession | null>(null);
 
   useEffect(() => {
     hydrateWorkspace().catch((error: unknown) => {
@@ -85,16 +89,6 @@ export function SidebarApp() {
   }, []);
 
   const visibleActiveItemId = persistedCurrentTargetId ?? activeItemId;
-
-  useEffect(() => {
-    const stopDetector = startAutoSubmitDetector(
-      document,
-      visibleActiveItemId ?? null
-    );
-    return () => {
-      stopDetector();
-    };
-  }, [visibleActiveItemId]);
 
   const visibleQueueItems = useMemo(() => {
     return persistedTargets.map((target, index) => ({
@@ -121,6 +115,44 @@ export function SidebarApp() {
         setLinkAsset(null);
       });
   }, [currentProject.id]);
+
+  useEffect(() => {
+    if (!isWorkspaceHydrated || automationStartedForPage.current) return;
+    automationStartedForPage.current = true;
+    runtimeClient
+      .send<AutomationSession | null>({ type: 'AUTOMATION_GET' })
+      .then((session) => {
+        setAutomationSession(session);
+        if (!session?.running || session.projectId !== currentProject.id) return session;
+        return runPageAutomation(document, {
+          project: currentProject,
+          identity,
+          linkAsset,
+          style: commentState.style
+        });
+      })
+      .then((session) => {
+        if (session) setAutomationSession(session);
+      })
+      .catch((error: unknown) => {
+        setActionError(error instanceof Error ? error.message : 'Automatic workflow failed.');
+      });
+  }, [commentState.style, currentProject, identity, isWorkspaceHydrated, linkAsset, setActionError]);
+
+  const toggleAutomation = () => {
+    if (automationSession?.running) {
+      runtimeClient.send<AutomationSession | null>({ type: 'AUTOMATION_STOP' }).then(setAutomationSession).catch((error: unknown) => {
+        setActionError(error instanceof Error ? error.message : 'Unable to stop automation.');
+      });
+      return;
+    }
+    runtimeClient.send<AutomationSession | null>({
+      type: 'AUTOMATION_START',
+      payload: { projectId: currentProject.id, mode: automationMode }
+    }).then(setAutomationSession).catch((error: unknown) => {
+      setActionError(error instanceof Error ? error.message : 'Unable to start automation.');
+    });
+  };
 
   const handleAction = (action: SidebarAction) => {
     runAction(action);
@@ -349,7 +381,14 @@ export function SidebarApp() {
               />
               <GeneratedCommentPanel commentState={commentState} />
               <StatusPanel status={status} />
-              <ActionBar isGenerating={commentState.isGenerating} onAction={handleAction} />
+              <ActionBar
+                isGenerating={commentState.isGenerating}
+                isAutomationRunning={Boolean(automationSession?.running)}
+                automationMode={automationMode}
+                onAutomationModeChange={setAutomationMode}
+                onAutomationToggle={toggleAutomation}
+                onAction={handleAction}
+              />
             </main>
             {isSettingsOpen ? (
               <SettingsWindow

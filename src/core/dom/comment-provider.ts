@@ -29,6 +29,24 @@ export interface ProviderCreateOptions {
   logger?: ProviderDebugLogger;
 }
 
+export interface SubmissionPreflightResult {
+  canSubmit: boolean;
+  reason: string;
+}
+
+export interface SubmissionSnapshot {
+  url: string;
+  comment: string;
+  commentWasPresent: boolean;
+}
+
+export interface SubmissionCheckResult {
+  outcome: 'success' | 'failure' | 'unknown';
+  moderationPending: boolean;
+  reason: string;
+  signals: string[];
+}
+
 export interface CommentProvider {
   readonly id: string;
   detect(): boolean;
@@ -41,6 +59,10 @@ export interface CommentProvider {
   fillFields(fields: CommentFormFields): void;
   fillComment(text: string): void;
   scrollToComment(): void;
+  checkSubmissionReadiness(): SubmissionPreflightResult;
+  createSubmissionSnapshot(comment: string): SubmissionSnapshot;
+  submit(): void;
+  checkSubmissionResult(snapshot: SubmissionSnapshot): SubmissionCheckResult;
   debug(): ProviderDetectionResult;
 }
 

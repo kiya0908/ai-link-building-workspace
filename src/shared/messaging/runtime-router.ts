@@ -1,4 +1,4 @@
-import type { RuntimeMessage, RuntimeMessageHandler } from '@/shared/messaging/messages';
+import type { RuntimeMessage, RuntimeMessageHandler, RuntimeMessageSender } from '@/shared/messaging/messages';
 
 export interface RuntimeMessageRouter {
   attach(): void;
@@ -9,7 +9,7 @@ export function createRuntimeMessageRouter(
 ): RuntimeMessageRouter {
   return {
     attach() {
-      chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
+      chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender: RuntimeMessageSender, sendResponse) => {
         const handler = handlers.find((candidate) => candidate.canHandle(message));
 
         if (!handler) {

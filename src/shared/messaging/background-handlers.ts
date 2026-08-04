@@ -9,6 +9,14 @@ import type {
   RuntimeMessage,
   RuntimeMessageHandler
 } from '@/shared/messaging/messages';
+import {
+  completeAutomationTarget,
+  getAutomationSession,
+  markAutomationPageReady,
+  startAutomation,
+  stopAutomation,
+  updateAutomationPhase
+} from '@/core/automation/automation-coordinator';
 
 const queueManager = createIndexedDBQueueManager();
 
@@ -20,10 +28,21 @@ export function createBackgroundMessageHandlers(): RuntimeMessageHandler[] {
           message.type === 'SIDEBAR_READY' ||
           message.type === 'SIDEBAR_ACTION' ||
           message.type === 'GENERATE_COMMENT' ||
+          message.type.startsWith('AUTOMATION_') ||
           message.type.startsWith('QUEUE_')
         );
       },
-      async handle(message) {
+      async handle(message, sender) {
+        if (message.type === 'AUTOMATION_GET') return getAutomationSession();
+        if (message.type === 'AUTOMATION_START') {
+          return startAutomation(message.payload.projectId, message.payload.mode, senderTabId(sender));
+        }
+        if (message.type === 'AUTOMATION_STOP') return stopAutomation();
+        if (message.type === 'AUTOMATION_PAGE_READY') return markAutomationPageReady(senderTabId(sender));
+        if (message.type === 'AUTOMATION_SET_PHASE') {
+          return updateAutomationPhase(message.payload.phase, message.payload.detail, { comment: message.payload.comment ?? null });
+        }
+        if (message.type === 'AUTOMATION_COMPLETE_TARGET') return completeAutomationTarget(message.payload);
         if (message.type === 'GENERATE_COMMENT') {
           const config = await loadOpenRouterConfig();
           const provider = new OpenRouterProvider(config);
@@ -125,6 +144,10 @@ export function createBackgroundMessageHandlers(): RuntimeMessageHandler[] {
       }
     }
   ];
+}
+
+function senderTabId(sender: { tab?: { id?: number } } | undefined): number | null {
+  return sender?.tab?.id ?? null;
 }
 
 async function createQueueSnapshot(

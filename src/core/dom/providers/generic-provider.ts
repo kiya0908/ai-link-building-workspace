@@ -3,8 +3,12 @@ import type {
   CommentProvider,
   CommentProviderFactory,
   ProviderCreateOptions,
-  ProviderDetectionResult
+  ProviderDetectionResult,
+  SubmissionCheckResult,
+  SubmissionPreflightResult,
+  SubmissionSnapshot
 } from '@/core/dom/comment-provider';
+import { checkGenericSubmissionResult, checkSubmissionReadiness, createSubmissionSnapshot, submitProviderForm } from '@/core/dom/submission-evidence';
 import {
   getAccessibleFrameDocuments,
   highlightElement,
@@ -96,6 +100,13 @@ export class GenericProvider implements CommentProvider {
     scrollElementIntoView(commentBox);
     highlightElement(commentBox);
     highlightElement(this.getSubmitButton());
+  }
+
+  checkSubmissionReadiness(): SubmissionPreflightResult { return checkSubmissionReadiness(this); }
+  createSubmissionSnapshot(comment: string): SubmissionSnapshot { return createSubmissionSnapshot(this, comment); }
+  submit(): void { submitProviderForm(this); }
+  checkSubmissionResult(snapshot: SubmissionSnapshot): SubmissionCheckResult {
+    return checkGenericSubmissionResult(this, snapshot);
   }
 
   debug(): ProviderDetectionResult {

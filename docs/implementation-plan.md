@@ -1,5 +1,7 @@
 # AI Link Building Workspace — Implementation Plan
 
+> 当前自动化版本说明：项目已从“人工 Fill + 手动 Submit”扩展为可选的队列自动化。`fill_only` 记录 `filled`；`auto_submit` 通过 Provider 点击 Submit，并使用站点成功/失败证据确认后才记录 `submitted`。页面 60 秒未就绪或不适合评论时记录 `skipped` 并进入下一目标。
+
 > 生成时间: 2026-05-20  
 > 基于 PRD v1 与代码审计结果的完整问题清单和实施追踪文档
 
@@ -42,7 +44,8 @@
 | P2-10 | Project Manager | 多Project CRUD UI缺失 | 仅支持导入workspace profile创建项目，无存取/编辑/删除/切换活跃项目的UI | 无法管理多个项目，"Manage multiple projects"成功标准不达标 | 中 | ✅ 已完成 | 新建`ProjectManagerPanel.tsx`组件；`workspace-store.ts`新增`switchProject`/`deleteProject`/`updateProject`方法；`SettingsWindow`集成ProjectManagerPanel，支持切换/删除/编辑/创建项目 | 已测试通过 |
 | P2-11 | Identity Manager | 多Identity CRUD UI缺失 | Settings中仅单个identity表单，无多identity的创建/切换/删除UI | 无法管理多个评论身份 | 中 | ✅ 已完成 | 新建`IdentityManagerPanel.tsx`组件；`workspace-store.ts`新增`identities`数组及`switchIdentity`/`createIdentity`/`deleteIdentity`方法；`SettingsWindow`集成IdentityManagerPanel，支持切换/删除/编辑/创建身份 | 测试未通过 |
 | P2-12 | Target Manager | 目标手动创建/编辑UI缺失 | 只能通过JSON/CSV文件批量导入，无手动添加或编辑单条target的界面 | 操作不灵活 | 中 | ✅ 已完成 | `QueueList.tsx`新增`+`按钮和手动添加表单（URL/Notes输入），点击Add后调用`onImport([target])`直接入库，无需文件导入 | 已测试通过 |
-| P2-13 | Status System | 提交后状态不自动标记submitted | 无检测表单提交事件的逻辑（MutationObserver监听comment form移除或URL变化等） | 用户需手动标记已完成，效率低下 | 中 | ✅ 已完成 | 新建`auto-submit-detector.ts`模块；`SidebarApp.tsx`通过useEffect在`visibleActiveItemId`变化时启动检测器，监听form submit事件、comment form DOM移除（MutationObserver）、history.pushState/replaceState/popstate变化，自动发送`QUEUE_UPDATE_STATUS(targetId, 'submitted')` | 已测试通过 |
+| P2-13 | Status System | 提交后状态不自动标记submitted | 旧逻辑会把任意submit/URL变化误判为成功 | 用户需手动标记已完成或被误标记 | 中 | ✅ 已替换 | 删除`auto-submit-detector.ts`；新增`CommentProvider`提交接口、`submission-evidence.ts`分层证据检测和`page-automation-workflow.ts`；仅可靠站点证据写入`submitted`，不确定结果保留`filled`并记`pending_review` | 结构测试与构建通过 |
+| P2-14 | Queue Automation | 缺少自动打开、自动填写、自动提交和超时跳过 | 原流程只支持手动按钮操作 | 无法连续处理队列 | 高 | ✅ 已完成 | 新增`automationState` IndexedDB store、`automation-coordinator.ts`、`browser.alarms` 60秒看门狗、跨页面会话恢复和Sidebar Automation mode控件 | 结构测试与构建通过 |
 
 ### 🟢 P3 — 边缘/增强问题
 
@@ -74,7 +77,8 @@ Phase C — 功能补齐 (P2)
   ├── P2-11 Identity CRUD UI
   ├── P2-12 Target手动管理UI
   ├── P2-13 自动标记submitted
-  └── P2-9  Link Asset业务逻辑接入
+   ├── P2-9  Link Asset业务逻辑接入
+   └── P2-14 队列自动化与站点提交证据确认
 
 Phase D — 增强 (P3)
   ├── P3-14 AI语言检测fallback
@@ -141,7 +145,8 @@ Phase D — 增强 (P3)
 | P2-10 | 手动 | 在Settings中新建、编辑、切换、删除Project | Project列表和当前活跃Project正确变化，刷新后仍保持 | 手动已验证 |
 | P2-11 | 手动 + 代码检查 | 在Settings中新建、编辑、切换、删除Identity | Identity列表和当前活跃Identity正确变化，刷新后仍保持 | 已修复待手动复测：`chrome.storage.local`现在持久化并恢复`identities`和`currentIdentityId` |
 | P2-12 | 手动 | 点击Queue里的`+`，手动输入URL和Notes并添加 | 新target进入当前project队列，刷新后仍存在 | 手动已验证 |
-| P2-13 | 手动 | 在真实或测试评论表单中Fill后提交评论 | 监听到提交或页面变化后，target状态自动变为`submitted` | 手动已验证 |
+| P2-13 | 自动化 + 手动 | 在测试评论表单中使用Auto submit，分别模拟成功提示、待审核、失败和无证据结果 | 只有可靠证据才是`submitted`；失败是`failed`；无证据保留`filled`并是`pending_review` | 结构测试与构建通过，需真实站点复测 |
+| P2-14 | 自动化 + 手动 | 启动Automation，验证Fill only、Auto submit、不可填写页面和60秒超时 | Fill only为`filled`；成功提交为`submitted`；不可处理/超时为`skipped`；自动进入下一目标 | 结构测试与构建通过，需真实站点复测 |
 
 ### P3 验证清单
 
@@ -244,6 +249,9 @@ Phase D — 增强 (P3)
 | `entrypoints/content.tsx:23` | P1-5 |
 | `src/core/storage/repositories/target-repository.ts:13-16` | P1-6 |
 | `src/core/queue/queue-manager.ts:56-74` | P1-6, P1-7 |
+| `src/core/automation/automation-coordinator.ts` | P2-14, 60秒超时和跨页面恢复 |
+| `src/core/automation/page-automation-workflow.ts` | P2-13, P2-14 |
+| `src/core/dom/submission-evidence.ts` | P2-13, Provider提交成功/失败证据 |
 | `src/core/types/project.ts` | P2-9, P2-10, P2-11 |
 | `src/core/article/article-extractor.ts:33-41` | P3-14 |
 | `src/core/queue/queue-import-export.ts` | P3-15 |

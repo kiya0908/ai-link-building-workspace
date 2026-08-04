@@ -12,6 +12,7 @@ import type {
   TargetStatus
 } from '@/core/types/queue';
 import type { SidebarAction } from '@/shared/messaging/sidebar-actions';
+import type { AutomationMode, AutomationPhase, AutomationSession } from '@/core/types/automation';
 
 export type RuntimeMessage =
   | {
@@ -110,7 +111,18 @@ export type RuntimeMessage =
   | {
       type: 'PAGE_ANALYZED';
       payload: ArticleAnalysis;
+    }
+  | { type: 'AUTOMATION_GET' }
+  | { type: 'AUTOMATION_START'; payload: { projectId: string; mode: AutomationMode } }
+  | { type: 'AUTOMATION_STOP' }
+  | { type: 'AUTOMATION_PAGE_READY' }
+  | { type: 'AUTOMATION_SET_PHASE'; payload: { phase: AutomationPhase; detail: string; comment?: string } }
+  | {
+      type: 'AUTOMATION_COMPLETE_TARGET';
+      payload: { targetId: string; status: TargetStatus; submissionStatus?: SubmissionStatus; detail: string };
     };
+
+export type AutomationResponse = AutomationSession | null;
 
 export interface GenerateCommentResponse extends GeneratedCommentResult {
   validation: CommentValidationResult;
@@ -125,5 +137,9 @@ export interface QueueSnapshotResponse {
 
 export interface RuntimeMessageHandler {
   canHandle(message: RuntimeMessage): boolean;
-  handle(message: RuntimeMessage, sender: chrome.runtime.MessageSender): Promise<unknown>;
+  handle(message: RuntimeMessage, sender: RuntimeMessageSender): Promise<unknown>;
+}
+
+export interface RuntimeMessageSender {
+  tab?: { id?: number };
 }

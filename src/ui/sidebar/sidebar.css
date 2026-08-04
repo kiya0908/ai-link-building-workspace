@@ -142,6 +142,30 @@ a {
   scrollbar-gutter: stable;
 }
 
+.ai-link-automation-controls {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  width: 100%;
+  border-bottom: 1px solid var(--ai-link-border);
+  padding-bottom: 10px;
+}
+
+.ai-link-automation-controls label {
+  display: grid;
+  gap: 4px;
+  color: var(--ai-link-muted);
+  font-size: 12px;
+}
+
+.ai-link-automation-controls select {
+  min-height: 34px;
+  border: 1px solid var(--ai-link-border);
+  border-radius: 6px;
+  background: var(--ai-link-bg);
+  padding: 6px 8px;
+}
+
 .ai-link-panel {
   display: block;
   flex: 0 0 auto;

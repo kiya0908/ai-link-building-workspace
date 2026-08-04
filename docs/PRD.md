@@ -3,7 +3,7 @@
 Version: MVP v1  
 Platform: Chrome Extension (Manifest V3)  
 Architecture: Local-first AI-assisted workflow system  
-Primary Goal: Improve blog comment backlink workflow efficiency through AI-assisted page analysis, comment generation, queue management, and auto-fill capabilities.
+Primary Goal: Improve blog comment backlink workflow efficiency through AI-assisted page analysis, comment generation, queue management, auto-fill, and optional evidence-confirmed auto-submit capabilities.
 
 ---
 
@@ -13,7 +13,7 @@ Primary Goal: Improve blog comment backlink workflow efficiency through AI-assis
 
 AI-assisted browser workflow extension for blog comment backlink operations.
 
-This product is NOT a fully automated SEO bot.
+This product is NOT a CAPTCHA/login bypass bot. It supports a user-triggered queue automation workflow, but never bypasses site security controls.
 
 The extension focuses on:
 
@@ -24,12 +24,13 @@ The extension focuses on:
 - Site learning
 - Multi-project management
 
-Human users remain responsible for:
+- Human users remain responsible for:
 
 - Login
 - CAPTCHA
-- Final review
-- Manual comment submission
+- Reviewing provider-specific automation settings
+- Completing login, CAPTCHA, consent, or other site-required challenges
+- Checking results when a site does not expose reliable submission evidence
 
 ---
 
@@ -52,11 +53,17 @@ Generate AI comment
     ↓
 Auto-fill form
     ↓
-Human review
+Automation mode: Fill only OR Auto submit
     ↓
-Manual submit
+Fill → status=filled
     ↓
-Record result
+Optional Submit click
+    ↓
+Site-specific evidence confirmation
+    ↓
+Confirmed success → status=submitted
+    ↓
+Failure/blocked → failed or filled
     ↓
 Next target
 ```
@@ -71,7 +78,7 @@ Next target
 - Comment form detection
 - AI comment generation
 - Auto-fill comment fields
-- Manual review before submit
+- Optional manual review before submit
 - Status tracking
 - Local storage
 - Export database
@@ -83,7 +90,7 @@ Next target
 
 ## The MVP version does NOT support:
 
-- Automatic comment submission
+- CAPTCHA/login/consent bypass
 - CAPTCHA solving
 - Proxy rotation
 - Automatic login
@@ -216,6 +223,7 @@ Controls target workflow sequence.
 
 - Use current tab navigation
 - Do NOT open new tabs by default
+- In automation mode, wait up to 60 seconds for page readiness; timeout targets become `skipped` and the next target opens automatically
 
 ## 7.5 Target Manager
 
@@ -316,9 +324,12 @@ Auto-fill detected comment forms.
 
 AI comment is first displayed in sidebar.
 
-User manually clicks:
-[ Fill ]
-Then extension fills the form.
+Manual mode: User clicks `[ Fill ]` and the extension fills the form.
+
+Automation modes:
+
+- `fill_only`: fills fields and records target `status` as `filled`.
+- `auto_submit`: fills fields, runs preflight checks, clicks Submit through the Provider, then records `submitted` only after reliable site evidence.
 
 ## 7.11 DOM Abstraction Layer
 
@@ -416,7 +427,7 @@ Determines whether page is suitable for commenting.
 
 ## 7.16 Status System
 
-### Status List
+## Status List
 
 - pending
 - opened
@@ -428,6 +439,8 @@ Determines whether page is suitable for commenting.
 - comment_closed
 - failed
 - skipped
+
+`status` is the value displayed by `.ai-link-status-pill`. `skipped` is used for timeout, missing/ineligible comment forms, and other pre-processing skips. `filled` means fields were filled without a confirmed submit. `submitted` means the site exposed reliable success evidence.
 
 ## 7.17 Export System
 
@@ -619,7 +632,7 @@ RULES:
 8. Output only the comment text.
 ```
 
-# 10. Manual Review Workflow
+## Manual Review Workflow
 
 ## Workflow
 
@@ -634,7 +647,7 @@ Click Fill
 ↓
 Auto Fill Form
 ↓
-User Manually Submit
+User Manually Submit OR Auto Submit mode
 ```
 
 # 11. Storage Strategy
@@ -659,6 +672,8 @@ IMPORTANT.
 - DOM interaction only inside content scripts
 - Sidebar and content scripts communicate via message passing
 - Do NOT store runtime-only critical state in service worker memory
+- `alarms` provides the persisted 60-second page-open watchdog
+- `tabs` is used to navigate the current tab to the next target
 
 # 13. Message Passing
 

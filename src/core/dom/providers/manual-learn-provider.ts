@@ -3,8 +3,12 @@ import type {
   CommentProvider,
   CommentProviderFactory,
   ProviderCreateOptions,
-  ProviderDetectionResult
+  ProviderDetectionResult,
+  SubmissionCheckResult,
+  SubmissionPreflightResult,
+  SubmissionSnapshot
 } from '@/core/dom/comment-provider';
+import { checkGenericSubmissionResult, checkSubmissionReadiness, createSubmissionSnapshot, submitProviderForm } from '@/core/dom/submission-evidence';
 import {
   highlightElement,
   safeQuery,
@@ -73,6 +77,13 @@ export class ManualLearnProvider implements CommentProvider {
     scrollElementIntoView(commentBox);
     highlightElement(commentBox);
     highlightElement(this.getSubmitButton());
+  }
+
+  checkSubmissionReadiness(): SubmissionPreflightResult { return checkSubmissionReadiness(this); }
+  createSubmissionSnapshot(comment: string): SubmissionSnapshot { return createSubmissionSnapshot(this, comment); }
+  submit(): void { submitProviderForm(this); }
+  checkSubmissionResult(snapshot: SubmissionSnapshot): SubmissionCheckResult {
+    return checkGenericSubmissionResult(this, snapshot);
   }
 
   debug(): ProviderDetectionResult {
@@ -152,6 +163,15 @@ class NullLearnedProvider implements CommentProvider {
   fillComment(): void {}
 
   scrollToComment(): void {}
+
+  checkSubmissionReadiness(): SubmissionPreflightResult { return { canSubmit: false, reason: 'No learned provider.' }; }
+  createSubmissionSnapshot(comment: string): SubmissionSnapshot {
+    return { url: this.id, comment, commentWasPresent: false };
+  }
+  submit(): void { throw new Error('No learned provider.'); }
+  checkSubmissionResult(): SubmissionCheckResult {
+    return { outcome: 'unknown', moderationPending: false, reason: 'No learned provider.', signals: [] };
+  }
 
   debug(): ProviderDetectionResult {
     return {
