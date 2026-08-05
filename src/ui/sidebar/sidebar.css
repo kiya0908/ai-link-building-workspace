@@ -507,6 +507,11 @@ a {
   color: var(--ai-link-accent);
 }
 
+.ai-link-status-pill--generation_failed,
+.ai-link-status-pill--failed {
+  color: var(--ai-link-error);
+}
+
 .ai-link-status--warning {
   color: var(--ai-link-warning);
 }

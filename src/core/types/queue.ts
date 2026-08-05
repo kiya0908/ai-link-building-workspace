@@ -7,6 +7,7 @@ export type TargetStatus =
   | 'submitted'
   | 'need_login'
   | 'comment_closed'
+  | 'generation_failed'
   | 'failed'
   | 'skipped';
 
@@ -19,6 +20,7 @@ export const TARGET_STATUSES = [
   'submitted',
   'need_login',
   'comment_closed',
+  'generation_failed',
   'failed',
   'skipped'
 ] as const satisfies readonly TargetStatus[];

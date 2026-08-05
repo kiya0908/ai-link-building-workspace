@@ -28,6 +28,10 @@ const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {
   rejected: 'rejected'
 };
 
+const TARGET_STATUS_LABELS: Partial<Record<QueueItem['status'], string>> = {
+  generation_failed: 'AI failed'
+};
+
 export function QueueList({
   items,
   activeItemId,
@@ -151,7 +155,7 @@ export function QueueList({
                 </span>
               </button>
               <span className={`ai-link-status-pill ai-link-status-pill--${item.status}`}>
-                {item.status}
+                {TARGET_STATUS_LABELS[item.status] ?? item.status}
               </span>
               <select
                 className="ai-link-submission-select"

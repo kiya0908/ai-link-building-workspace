@@ -10,7 +10,7 @@ export class IndexedDBAutomationStateRepository
     super(STORE_NAMES.automationState, (session) => session.id);
   }
 
-  get(): Promise<AutomationSession | null> {
+  override get(): Promise<AutomationSession | null> {
     return super.get('default');
   }
 

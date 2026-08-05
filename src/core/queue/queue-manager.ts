@@ -123,7 +123,7 @@ export function createQueueManager(
       return {
         total: targets.length,
         completed: targets.filter((target) => target.status === 'submitted').length,
-        failed: targets.filter((target) => target.status === 'failed').length,
+        failed: targets.filter((target) => target.status === 'failed' || target.status === 'generation_failed').length,
         skipped: targets.filter((target) => target.status === 'skipped').length
       };
     },

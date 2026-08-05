@@ -23,6 +23,25 @@ export async function runPageAutomation(document: Document, context: PageAutomat
   session = await runtime.send<AutomationSession | null>({ type: 'AUTOMATION_PAGE_READY' });
   if (!session?.running || !session.targetId) return session;
 
+  const targetId = session.targetId;
+  try {
+    return await runAutomationTarget(document, context, session, targetId);
+  } catch (error) {
+    return complete(
+      targetId,
+      'failed',
+      `Automatic processing failed: ${automationErrorMessage(error)}`
+    );
+  }
+}
+
+async function runAutomationTarget(
+  document: Document,
+  context: PageAutomationContext,
+  session: AutomationSession,
+  targetId: string
+) {
+
   if (session.phase === 'confirming' && session.comment) {
     return confirmAfterNavigation(document, session);
   }
@@ -31,16 +50,21 @@ export async function runPageAutomation(document: Document, context: PageAutomat
   const article = extractArticle(document);
   const quality = evaluatePageQuality(document, provider, article);
   if (!provider || !quality.isSuitable) {
-    return complete(session.targetId, 'skipped', `Page is not suitable: ${quality.issues.join(', ') || 'provider not detected'}.`);
+    return complete(targetId, 'skipped', `Page is not suitable: ${quality.issues.join(', ') || 'provider not detected'}.`);
   }
 
   await setPhase('generating', 'Generating an AI comment.');
-  const generated = await runtime.send<GenerateCommentResponse>({
-    type: 'GENERATE_COMMENT',
-    payload: { article, project: context.project, style: context.style, mode: context.project.defaultCommentMode, targetId: session.targetId }
-  });
+  let generated: GenerateCommentResponse;
+  try {
+    generated = await runtime.send<GenerateCommentResponse>({
+      type: 'GENERATE_COMMENT',
+      payload: { article, project: context.project, style: context.style, mode: context.project.defaultCommentMode, targetId }
+    });
+  } catch (error) {
+    return complete(targetId, 'generation_failed', `AI generation failed: ${automationErrorMessage(error)}`);
+  }
   if (!generated.validation.valid) {
-    return complete(session.targetId, 'failed', `Generated comment failed validation: ${generated.validation.issues.join(', ')}.`);
+    return complete(targetId, 'generation_failed', `Generated comment failed validation: ${generated.validation.issues.join(', ')}.`);
   }
 
   await setPhase('filling', 'Filling detected comment fields.', generated.comment);
@@ -51,15 +75,15 @@ export async function runPageAutomation(document: Document, context: PageAutomat
     website: resolveWebsite(context)
   });
   provider.scrollToComment();
-  await runtime.send({ type: 'QUEUE_UPDATE_STATUS', payload: { targetId: session.targetId, status: 'filled' } });
+  await runtime.send({ type: 'QUEUE_UPDATE_STATUS', payload: { targetId, status: 'filled' } });
 
   if (session.mode === 'fill_only') {
-    return complete(session.targetId, 'filled', 'Comment fields were filled; submit was not clicked.');
+    return complete(targetId, 'filled', 'Comment fields were filled; submit was not clicked.');
   }
 
   const readiness = provider.checkSubmissionReadiness();
   if (!readiness.canSubmit) {
-    return complete(session.targetId, 'filled', `Automatic submission blocked: ${readiness.reason}`);
+    return complete(targetId, 'filled', `Automatic submission blocked: ${readiness.reason}`);
   }
 
   const snapshot = provider.createSubmissionSnapshot(generated.comment);
@@ -71,11 +95,11 @@ export async function runPageAutomation(document: Document, context: PageAutomat
     await delay(750);
     const result = provider.checkSubmissionResult(snapshot);
     if (result.outcome === 'success') {
-      return complete(session.targetId, 'submitted', result.reason, result.moderationPending ? 'pending_review' : 'submitted');
+      return complete(targetId, 'submitted', result.reason, result.moderationPending ? 'pending_review' : 'submitted');
     }
-    if (result.outcome === 'failure') return complete(session.targetId, 'failed', result.reason, 'rejected');
+    if (result.outcome === 'failure') return complete(targetId, 'failed', result.reason, 'rejected');
   }
-  return complete(session.targetId, 'filled', 'Submit was clicked, but the site result could not be confirmed.', 'pending_review');
+  return complete(targetId, 'filled', 'Submit was clicked, but the site result could not be confirmed.', 'pending_review');
 }
 
 async function confirmAfterNavigation(document: Document, session: AutomationSession) {
@@ -95,7 +119,7 @@ function setPhase(phase: 'generating' | 'filling' | 'confirming', detail: string
   return runtime.send({ type: 'AUTOMATION_SET_PHASE', payload: { phase, detail, comment } });
 }
 
-function complete(targetId: string, status: 'filled' | 'submitted' | 'failed' | 'skipped', detail: string, submissionStatus?: 'submitted' | 'pending_review' | 'rejected') {
+function complete(targetId: string, status: 'filled' | 'submitted' | 'generation_failed' | 'failed' | 'skipped', detail: string, submissionStatus?: 'submitted' | 'pending_review' | 'rejected') {
   return runtime.send<AutomationSession | null>({ type: 'AUTOMATION_COMPLETE_TARGET', payload: { targetId, status, submissionStatus, detail } });
 }
 
@@ -103,6 +127,11 @@ function resolveWebsite(context: PageAutomationContext): string {
   if (context.project.defaultCommentMode === 'html_link') return context.linkAsset?.htmlCode || context.identity.website || context.project.website;
   if (context.project.defaultCommentMode === 'plain_url') return context.linkAsset?.plainUrl || context.identity.website || context.project.website;
   return context.linkAsset?.anchorText || context.identity.website || context.project.website;
+}
+
+function automationErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return 'Unknown automation error.';
 }
 
 function delay(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
