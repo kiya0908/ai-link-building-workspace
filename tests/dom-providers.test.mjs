@@ -31,6 +31,8 @@ test('safe DOM helpers centralize selector access, highlighting, iframe and cont
   [
     'safeQuery',
     'safeQueryInput',
+    'findCommentFormSubmit',
+    'getAssociatedForm',
     'setElementValue',
     'highlightElement',
     'scrollElementIntoView',
@@ -48,13 +50,24 @@ test('generic and wordpress providers implement detection and safe filling', () 
   const wordpress = read('src/core/dom/providers/wordpress-provider.ts');
 
   assert.match(generic, /contenteditable/);
+  assert.match(generic, /findCommentFormSubmit/);
+  assert.match(generic, /input\[name="submit" i\]/);
   assert.match(generic, /getAccessibleFrameDocuments/);
   assert.match(generic, /fillFields/);
   assert.match(generic, /safeQuery/);
   assert.match(generic, /capabilities/);
   assert.match(wordpress, /commentform|respond|wp-/);
+  assert.match(wordpress, /findCommentFormSubmit/);
   assert.match(wordpress, /getAccessibleFrameDocuments/);
   assert.match(wordpress, /getConfidence/);
+});
+
+test('submission only clicks a control associated with the comment form', () => {
+  const evidence = read('src/core/dom/submission-evidence.ts');
+
+  assert.match(evidence, /getAssociatedForm/);
+  assert.match(evidence, /does not belong to the comment form/);
+  assert.match(evidence, /button\.click\(\)/);
 });
 
 test('manual learning has repository-backed selector priority', () => {

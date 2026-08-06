@@ -20,6 +20,51 @@ export function safeQueryInput(root: ParentNode, selectors: string[]): HTMLInput
   return safeQuery<HTMLInputElement>(root, selectors);
 }
 
+/**
+ * Finds a submit control belonging to the form that owns the detected comment
+ * field. This prevents unrelated forms (search, newsletter, etc.) from
+ * winning a page-level submit selector match.
+ */
+export function findCommentFormSubmit(
+  commentBox: HTMLElement | null,
+  selectors: string[]
+): HTMLElement | null {
+  const form = getAssociatedForm(commentBox);
+  if (!form) {
+    return null;
+  }
+
+  for (const selector of selectors) {
+    try {
+      const candidates = Array.from(form.querySelectorAll<HTMLElement>(selector));
+      const submit = candidates.find(isUsableSubmitControl);
+      if (submit) {
+        return submit;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+export function getAssociatedForm(element: HTMLElement | null): HTMLFormElement | null {
+  if (element instanceof HTMLButtonElement || element instanceof HTMLInputElement) {
+    return element.form ?? element.closest('form');
+  }
+
+  return element?.closest('form') ?? null;
+}
+
+function isUsableSubmitControl(element: HTMLElement): boolean {
+  if (!element.isConnected || element instanceof HTMLInputElement && element.type === 'hidden') {
+    return false;
+  }
+
+  return !(element instanceof HTMLButtonElement || element instanceof HTMLInputElement) || !element.disabled;
+}
+
 export function setElementValue(element: HTMLElement | null, value: string): void {
   if (!element) {
     return;

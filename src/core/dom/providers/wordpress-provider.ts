@@ -10,6 +10,7 @@ import type {
 } from '@/core/dom/comment-provider';
 import { checkGenericSubmissionResult, checkSubmissionReadiness, createSubmissionSnapshot, submitProviderForm } from '@/core/dom/submission-evidence';
 import {
+  findCommentFormSubmit,
   getAccessibleFrameDocuments,
   highlightElement,
   safeQuery,
@@ -67,11 +68,21 @@ export class WordPressProvider implements CommentProvider {
   }
 
   getSubmitButton(): HTMLElement | null {
-    return this.queryAcrossAccessibleDocuments<HTMLElement>([
+    const selectors = [
       '#commentform input#submit',
       '#commentform button[type="submit"]',
-      '#respond input[type="submit"]'
-    ]);
+      '#respond input[type="submit"]',
+      'input[type="submit"]',
+      'input[name="submit" i]',
+      '#submit',
+      'button[type="submit"]'
+    ];
+    const commentFormSubmit = findCommentFormSubmit(this.getCommentBox(), selectors);
+    if (commentFormSubmit) {
+      return commentFormSubmit;
+    }
+
+    return this.queryAcrossAccessibleDocuments<HTMLElement>(selectors);
   }
 
   fillFields(fields: CommentFormFields): void {

@@ -10,6 +10,7 @@ import type {
 } from '@/core/dom/comment-provider';
 import { checkGenericSubmissionResult, checkSubmissionReadiness, createSubmissionSnapshot, submitProviderForm } from '@/core/dom/submission-evidence';
 import {
+  findCommentFormSubmit,
   getAccessibleFrameDocuments,
   highlightElement,
   isEditableCommentElement,
@@ -33,6 +34,8 @@ const WEBSITE_SELECTORS = ['input[name*="url" i]', 'input[name*="website" i]', '
 const SUBMIT_SELECTORS = [
   'button[type="submit"]',
   'input[type="submit"]',
+  'input[name="submit" i]',
+  '#submit',
   'button[name*="submit" i]',
   '[role="button"][aria-label*="submit" i]'
 ];
@@ -80,6 +83,11 @@ export class GenericProvider implements CommentProvider {
   }
 
   getSubmitButton(): HTMLElement | null {
+    const commentFormSubmit = findCommentFormSubmit(this.getCommentBox(), SUBMIT_SELECTORS);
+    if (commentFormSubmit) {
+      return commentFormSubmit;
+    }
+
     return this.queryAcrossAccessibleDocuments<HTMLElement>(SUBMIT_SELECTORS);
   }
 

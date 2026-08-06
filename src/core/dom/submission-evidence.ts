@@ -4,6 +4,7 @@ import type {
   SubmissionPreflightResult,
   SubmissionSnapshot
 } from '@/core/dom/comment-provider';
+import { getAssociatedForm } from '@/core/dom/base/safe-dom';
 
 const FAILURE_PATTERNS = [
   'duplicate comment', 'already said that', 'invalid email', 'error:', 'captcha',
@@ -22,7 +23,12 @@ export function checkSubmissionReadiness(provider: CommentProvider): SubmissionP
   if (!button) return { canSubmit: false, reason: 'Submit button was not detected.' };
   if (isDisabled(button)) return { canSubmit: false, reason: 'Submit button is disabled.' };
 
-  const form = button.closest('form') ?? commentBox.closest('form');
+  const commentForm = getAssociatedForm(commentBox);
+  const buttonForm = getAssociatedForm(button);
+  if (commentForm && commentForm !== buttonForm) {
+    return { canSubmit: false, reason: 'Detected submit button does not belong to the comment form.' };
+  }
+  const form = buttonForm ?? commentForm;
   if (form instanceof HTMLFormElement && !form.checkValidity()) {
     return { canSubmit: false, reason: 'The comment form did not pass browser validation.' };
   }
@@ -44,6 +50,11 @@ export function createSubmissionSnapshot(provider: CommentProvider, comment: str
 export function submitProviderForm(provider: CommentProvider): void {
   const button = provider.getSubmitButton();
   if (!button) throw new Error('Submit button was not detected.');
+  const commentForm = getAssociatedForm(provider.getCommentBox());
+  const buttonForm = getAssociatedForm(button);
+  if (commentForm && commentForm !== buttonForm) {
+    throw new Error('Detected submit button does not belong to the comment form.');
+  }
   button.click();
 }
 
