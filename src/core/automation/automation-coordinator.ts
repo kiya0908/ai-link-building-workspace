@@ -4,7 +4,7 @@ import type { AutomationMode, AutomationPhase, AutomationSession } from '@/core/
 import type { SubmissionStatus, TargetStatus } from '@/core/types/queue';
 
 export const AUTOMATION_OPEN_ALARM = 'ai-link-automation-open-timeout';
-const OPEN_TIMEOUT_MS = 120_000;
+const OPEN_TIMEOUT_MS = 180_000;
 
 const repository = createIndexedDBAutomationStateRepository();
 const queue = createIndexedDBQueueManager();
@@ -75,7 +75,7 @@ export async function completeAutomationTarget(input: {
 export async function handleAutomationOpenTimeout() {
   const current = await repository.get();
   if (!current?.running || current.phase !== 'opening' || !current.targetId) return;
-  await completeAutomationTarget({ targetId: current.targetId, status: 'skipped', detail: 'Page did not become ready within 120 seconds.' });
+  await completeAutomationTarget({ targetId: current.targetId, status: 'skipped', detail: 'Page did not become ready within 180 seconds.' });
 }
 
 async function openNextAutomationTarget() {
