@@ -1,12 +1,9 @@
-import type { CommentMode } from '@/core/types/project';
 import type { SidebarIdentity, SidebarProject } from '@/ui/sidebar/types';
 
 export interface WorkspaceProfileImport {
   project: SidebarProject;
   identity: SidebarIdentity;
 }
-
-const VALID_COMMENT_MODES = ['soft_mention', 'plain_url', 'html_link'] as const satisfies readonly CommentMode[];
 
 export const WORKSPACE_PROFILE_JSON_EXAMPLE = {
   profiles: [
@@ -15,7 +12,7 @@ export const WORKSPACE_PROFILE_JSON_EXAMPLE = {
         brand: 'Playlist Name Generator',
         website: 'https://playlistnameai.org',
         description: 'Playlist title generator for Spotify, Apple Music, and YouTube Music users.',
-        commentMode: 'soft_mention'
+        commentMode: 'html_link'
       },
       commentIdentity: {
         name: 'playlist name generator',
@@ -28,7 +25,7 @@ export const WORKSPACE_PROFILE_JSON_EXAMPLE = {
         brand: 'Doodle Baseball',
         website: 'https://doodlebaseball.info',
         description: 'Browser game site for Doodle Baseball fans.',
-        commentMode: 'soft_mention'
+        commentMode: 'html_link'
       },
       commentIdentity: {
         name: 'doodle baseball',
@@ -41,8 +38,8 @@ export const WORKSPACE_PROFILE_JSON_EXAMPLE = {
 
 export const WORKSPACE_PROFILE_CSV_EXAMPLE = [
   'projectBrand,projectWebsite,projectDescription,commentMode,identityName,identityEmail,identityWebsite',
-  'Playlist Name Generator,https://playlistnameai.org,"Playlist title generator for Spotify, Apple Music, and YouTube Music users.",soft_mention,playlist name generator,support@playlistnameai.org,https://playlistnameai.org',
-  'Doodle Baseball,https://doodlebaseball.info,Browser game site for Doodle Baseball fans.,soft_mention,doodle baseball,support@doodlebaseball.info,https://doodlebaseball.info'
+  'Playlist Name Generator,https://playlistnameai.org,"Playlist title generator for Spotify, Apple Music, and YouTube Music users.",html_link,playlist name generator,support@playlistnameai.org,https://playlistnameai.org',
+  'Doodle Baseball,https://doodlebaseball.info,Browser game site for Doodle Baseball fans.,html_link,doodle baseball,support@doodlebaseball.info,https://doodlebaseball.info'
 ].join('\n');
 
 export function parseWorkspaceProfileFile(fileName: string, content: string): WorkspaceProfileImport[] {
@@ -84,7 +81,7 @@ function getJsonProfileRecords(value: unknown): Array<{
     brand: string;
     website: string;
     description: string;
-    commentMode: CommentMode;
+    commentMode: string;
   }>;
   commentIdentity?: Partial<{
     name: string;
@@ -106,7 +103,7 @@ function getJsonProfileRecords(value: unknown): Array<{
       brand: string;
       website: string;
       description: string;
-      commentMode: CommentMode;
+      commentMode: string;
     }>;
     commentIdentity?: Partial<{
       name: string;
@@ -141,7 +138,6 @@ function parseWorkspaceProfileCsv(content: string): WorkspaceProfileImport[] {
 function normalizeWorkspaceProfile(record: Record<string, unknown>): WorkspaceProfileImport {
   const brand = requiredString(record.projectBrand, 'projectBrand');
   const website = requiredString(record.projectWebsite, 'projectWebsite');
-  const commentMode = normalizeCommentMode(record.commentMode);
   const idSeed = `${brand.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
 
   return {
@@ -151,7 +147,7 @@ function normalizeWorkspaceProfile(record: Record<string, unknown>): WorkspacePr
       brand,
       website,
       description: String(record.projectDescription ?? ''),
-      defaultCommentMode: commentMode
+      defaultCommentMode: 'html_link'
     },
     identity: {
       id: `identity-${idSeed}`,
@@ -169,11 +165,6 @@ function requiredString(value: unknown, fieldName: string): string {
   }
 
   return text;
-}
-
-function normalizeCommentMode(value: unknown): CommentMode {
-  const mode = String(value ?? 'soft_mention') as CommentMode;
-  return VALID_COMMENT_MODES.includes(mode) ? mode : 'soft_mention';
 }
 
 function parseCsvRow(row: string): string[] {

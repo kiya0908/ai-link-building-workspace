@@ -58,7 +58,7 @@ async function runAutomationTarget(
   try {
     generated = await runtime.send<GenerateCommentResponse>({
       type: 'GENERATE_COMMENT',
-      payload: { article, project: context.project, style: context.style, mode: context.project.defaultCommentMode, targetId }
+      payload: { article, project: context.project, style: context.style, mode: 'html_link', targetId }
     });
   } catch (error) {
     return complete(targetId, 'generation_failed', `AI generation failed: ${automationErrorMessage(error)}`);
@@ -124,9 +124,7 @@ function complete(targetId: string, status: 'filled' | 'submitted' | 'generation
 }
 
 function resolveWebsite(context: PageAutomationContext): string {
-  if (context.project.defaultCommentMode === 'html_link') return context.linkAsset?.htmlCode || context.identity.website || context.project.website;
-  if (context.project.defaultCommentMode === 'plain_url') return context.linkAsset?.plainUrl || context.identity.website || context.project.website;
-  return context.linkAsset?.anchorText || context.identity.website || context.project.website;
+  return context.linkAsset?.plainUrl || context.identity.website || context.project.website;
 }
 
 function automationErrorMessage(error: unknown): string {

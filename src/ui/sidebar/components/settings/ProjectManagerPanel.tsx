@@ -50,7 +50,7 @@ export function ProjectManagerPanel({
       brand: `New Project ${projects.length + 1}`,
       website: '',
       description: '',
-      defaultCommentMode: 'soft_mention'
+      defaultCommentMode: 'html_link'
     });
   };
 

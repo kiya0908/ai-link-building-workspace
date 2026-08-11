@@ -13,7 +13,7 @@ export async function generateReviewedComment(
   const result = await generate(input);
   return {
     ...result,
-    validation: validateGeneratedComment(result.comment, input.mode)
+    validation: validateGeneratedComment(result.comment, input.mode, input.article.language, input.project.website)
   };
 }
 

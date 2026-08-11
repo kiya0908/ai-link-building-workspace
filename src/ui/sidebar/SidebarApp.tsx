@@ -205,7 +205,7 @@ export function SidebarApp() {
               defaultCommentMode: currentProject.defaultCommentMode
             },
             style: commentState.style,
-            mode: commentState.mode,
+            mode: 'html_link',
             targetId
           }
         })
@@ -233,9 +233,7 @@ export function SidebarApp() {
         .catch(() => linkAsset)
         .then((latestLinkAsset) => {
           const websiteValue =
-            (commentState.mode === 'html_link' && latestLinkAsset?.htmlCode) ||
-            (commentState.mode === 'plain_url' && latestLinkAsset?.plainUrl) ||
-            latestLinkAsset?.anchorText ||
+            latestLinkAsset?.plainUrl ||
             identity.website ||
             currentProject.website;
 

@@ -52,8 +52,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       name: 'Primary Workspace',
       brand: 'Dog Age Calculator',
       website: 'https://dogagecalculator.info',
-      description: 'Soft mention backlink workflow for pet care blog comments.',
-      defaultCommentMode: 'soft_mention'
+      description: 'HTML link backlink workflow for pet care blog comments.',
+      defaultCommentMode: 'html_link'
     }
   ],
   currentProject: {
@@ -61,8 +61,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     name: 'Primary Workspace',
     brand: 'Dog Age Calculator',
     website: 'https://dogagecalculator.info',
-    description: 'Soft mention backlink workflow for pet care blog comments.',
-    defaultCommentMode: 'soft_mention'
+    description: 'HTML link backlink workflow for pet care blog comments.',
+    defaultCommentMode: 'html_link'
   },
   identities: [
     {
@@ -93,7 +93,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   commentState: {
     draft:
       'This is a placeholder comment draft. Real AI generation will be connected in a later task.',
-    mode: 'soft_mention',
+    mode: 'html_link',
     style: 'friendly',
     isGenerating: false,
     error: null,
@@ -113,31 +113,34 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return;
     }
 
+    const normalized = normalizeStoredWorkspaceModes(stored);
+    void saveStoredWorkspace(normalized);
     set((state) => ({
       isHydrated: true,
-      projects: stored.projects,
-      currentProject: stored.currentProject,
-      identities: stored.identities,
-      projectIdentityIds: stored.projectIdentityIds,
-      currentIdentityId: stored.currentIdentityId,
-      identity: stored.identity,
+      projects: normalized.projects,
+      currentProject: normalized.currentProject,
+      identities: normalized.identities,
+      projectIdentityIds: normalized.projectIdentityIds,
+      currentIdentityId: normalized.currentIdentityId,
+      identity: normalized.identity,
       commentState: {
         ...state.commentState,
-        mode: stored.currentProject.defaultCommentMode
+        mode: 'html_link'
       }
     }));
   },
   toggle: () => set((state) => ({ isOpen: !state.isOpen })),
   createWorkspaceProfile: (project, identity) =>
     set((state) => {
+      const normalizedProject = { ...project, defaultCommentMode: 'html_link' as const };
       const nextIdentities = upsertIdentity(state.identities, identity);
       const nextProjectIdentityIds = {
         ...state.projectIdentityIds,
-        [project.id]: identity.id
+        [normalizedProject.id]: identity.id
       };
       const nextState = {
-        projects: [...state.projects, project],
-        currentProject: project,
+        projects: [...state.projects, normalizedProject],
+        currentProject: normalizedProject,
         identities: nextIdentities,
         projectIdentityIds: nextProjectIdentityIds,
         currentIdentityId: identity.id,
@@ -148,11 +151,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         ...nextState,
         commentState: {
           ...state.commentState,
-          mode: project.defaultCommentMode
+          mode: 'html_link' as const
         },
         status: {
           label: 'Workspace profile imported',
-          detail: `${project.brand} was added and selected.`,
+          detail: `${normalizedProject.brand} was added and selected.`,
           tone: 'success'
         }
       };
@@ -286,7 +289,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         identity,
         commentState: {
           ...state.commentState,
-          mode: project.defaultCommentMode
+          mode: 'html_link'
         },
         status: {
           label: 'Project switched',
@@ -328,11 +331,12 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     }),
   updateProject: (project) =>
     set((state) => {
+      const normalizedProject = { ...project, defaultCommentMode: 'html_link' as const };
       const nextProjects = state.projects.map((p) =>
-        p.id === project.id ? project : p
+        p.id === normalizedProject.id ? normalizedProject : p
       );
       const nextCurrent =
-        state.currentProject.id === project.id ? project : state.currentProject;
+        state.currentProject.id === normalizedProject.id ? normalizedProject : state.currentProject;
       const nextState = {
         projects: nextProjects,
         currentProject: nextCurrent,
@@ -346,7 +350,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         ...nextState,
         status: {
           label: 'Project updated',
-          detail: `${project.brand} settings have been saved.`,
+          detail: `${normalizedProject.brand} settings have been saved.`,
           tone: 'success'
         }
       };
@@ -501,6 +505,24 @@ async function saveStoredWorkspace(state: StoredWorkspaceState): Promise<void> {
   await chrome.storage.local.set({
     [WORKSPACE_STORAGE_KEY]: state
   });
+}
+
+function normalizeStoredWorkspaceModes(state: StoredWorkspaceState): StoredWorkspaceState {
+  const projects = state.projects.map((project) => ({
+    ...project,
+    defaultCommentMode: 'html_link' as const
+  }));
+  const currentProject =
+    projects.find((project) => project.id === state.currentProject.id) ?? {
+      ...state.currentProject,
+      defaultCommentMode: 'html_link' as const
+    };
+
+  return {
+    ...state,
+    projects,
+    currentProject
+  };
 }
 
 function upsertIdentity(identities: SidebarIdentity[], identity: SidebarIdentity): SidebarIdentity[] {

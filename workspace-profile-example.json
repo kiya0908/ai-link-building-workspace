@@ -5,7 +5,7 @@
         "brand": "Playlist Name Generator",
         "website": "https://playlistnameai.org",
         "description": "Playlist title generator for Spotify, Apple Music, and YouTube Music users.",
-        "commentMode": "soft_mention"
+        "commentMode": "html_link"
       },
       "commentIdentity": {
         "name": "playlist name generator",
@@ -18,7 +18,7 @@
         "brand": "Doodle Baseball",
         "website": "https://doodlebaseball.info",
         "description": "Browser game site for Doodle Baseball fans.",
-        "commentMode": "soft_mention"
+        "commentMode": "html_link"
       },
       "commentIdentity": {
         "name": "doodle baseball",

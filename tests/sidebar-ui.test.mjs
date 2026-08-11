@@ -105,9 +105,9 @@ test('settings expose link asset editing and full database export', () => {
 test('workspace store persists the full identity collection', () => {
   const store = read('src/ui/sidebar/store/workspace-store.ts');
 
-  assert.match(store, /identities: stored\.identities/);
-  assert.match(store, /projectIdentityIds: stored\.projectIdentityIds/);
-  assert.match(store, /currentIdentityId: stored\.currentIdentityId/);
+  assert.match(store, /identities: normalized\.identities/);
+  assert.match(store, /projectIdentityIds: normalized\.projectIdentityIds/);
+  assert.match(store, /currentIdentityId: normalized\.currentIdentityId/);
   assert.match(store, /upsertIdentity/);
   assert.match(store, /currentIdentityId: identity\.id/);
 });

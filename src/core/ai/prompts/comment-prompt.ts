@@ -21,14 +21,14 @@ export function buildCommentPrompt(input: GenerateCommentInput): string {
     `Style: ${input.style}`,
     '',
     'MODE RULES',
-    modeRule(input.mode, input.project.website),
+    htmlLinkRule(input.project.website),
     '',
     'QUALITY RULES',
     '- Mention one concrete detail from the article.',
-    '- Keep the comment under 80 words.',
+    ...lengthRules(input.article.language),
     '- Do not sound promotional.',
     '- Do not claim personal experience unless the article supports it.',
-    '- Use at most one link.',
+    '- Include exactly one HTML anchor and no other URL or link.',
     '- Match the article language naturally.',
     '- Do not include markdown fences or explanations.',
     '',
@@ -37,14 +37,30 @@ export function buildCommentPrompt(input: GenerateCommentInput): string {
   ].join('\n');
 }
 
-function modeRule(mode: GenerateCommentInput['mode'], website: string): string {
-  if (mode === 'plain_url') {
-    return `Include this plain URL only if it fits naturally: ${website}`;
+function htmlLinkRule(website: string): string {
+  return [
+    'Mode: html_link (required for every comment).',
+    `Use the provided target URL exactly as the href: ${website}`,
+    `Required structure: <a href="${website}">natural, context-relevant anchor text</a>`,
+    'Integrate the anchor naturally into a relevant sentence.',
+    'Do not omit the anchor and do not output a second link.'
+  ].join('\n');
+}
+
+function lengthRules(language: string): string[] {
+  if (isCjkLanguage(language)) {
+    return [
+      '- Write 40–120 visible CJK characters, excluding HTML markup.',
+      '- Use 2–3 natural sentences.'
+    ];
   }
 
-  if (mode === 'html_link') {
-    return `Use one simple HTML anchor only if it fits naturally: <a href="${website}">relevant anchor text</a>`;
-  }
+  return [
+    '- Write 25–70 words, excluding HTML markup and the target URL.',
+    '- Use 2–3 natural sentences.'
+  ];
+}
 
-  return 'Use a soft brand mention. Do not force a URL into the comment.';
+function isCjkLanguage(language: string): boolean {
+  return /^(zh|ja|ko)(?:-|$)/i.test(language.trim());
 }
