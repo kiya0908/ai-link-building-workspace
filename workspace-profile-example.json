@@ -25,6 +25,32 @@
         "email": "support@doodlebaseball.info",
         "website": "https://doodlebaseball.info"
       }
+    },
+        {
+      "project": {
+        "brand": "copero",
+        "website": "https://copero.top",
+        "description": "Browser-based football career simulator.",
+        "commentMode": "html_link"
+      },
+      "commentIdentity": {
+        "name": "copero game",
+        "email": "support@copero.top",
+        "website": "https://copero.top"
+      }
+    },
+        {
+      "project": {
+        "brand": "find your fairy name",
+        "website": "https://rainbowmagicfairyname.online",
+        "description": "Enter your name and discover your Rainbow Magic fairy name! Free fairy name quiz - find your fairy identity and share with friends.",
+        "commentMode": "html_link"
+      },
+      "commentIdentity": {
+        "name": "rainbow magic fairy",
+        "email": "support@rainbowmagicfairyname.online",
+        "website": "https://rainbowmagicfairyname.online"
+      }
     }
   ]
 }
