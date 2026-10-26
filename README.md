@@ -120,11 +120,11 @@ https://example.com/post-2,Second target
 手动模式下的侧边栏动作说明：
 
 1. 打开队列目标后，目标的流程状态会变为 `opened`。
-2. `Generate Comment` 会读取当前页面内容、检测评论 Provider、评估页面质量并生成评论草稿。生成过程中目标会记录为 `analyzed`，成功后记录为 `generated`。
+2. `Generate Comment` 会读取当前页面 Title 和 Meta Description（缺失时按元数据降级）、检测评论 Provider、评估页面质量并生成评论草稿；正文和标题列表不会发送给 AI。生成过程中目标会记录为 `analyzed`，成功后记录为 `generated`。
 3. `Regenerate` 会基于当前项目、评论风格和固定的 `html_link` 模式重新生成草稿。
 4. 生成结果会先显示在侧边栏，用户可以人工检查后再执行填充。
 
-如果手动生成请求失败，错误会显示在侧边栏。当前实现不会在手动模式下自动把目标写成 `generation_failed`；自动化模式下的 AI 请求失败或生成结果验证失败才会持久化为 `generation_failed`，并在队列中显示为 `AI failed`。
+如果手动生成请求失败，错误会显示在侧边栏。当前实现不会在手动模式下自动把目标写成 `generation_failed`；自动化模式下的 AI 请求失败或生成结果经过最多 3 次尝试仍未通过验证才会持久化为 `generation_failed`，并在队列中显示为 `AI failed`。
 
 ### 6. 填充评论表单
 
@@ -152,7 +152,7 @@ https://example.com/post-2,Second target
 - 站点确认已接收但提示等待审核：`status=submitted`，`submissionStatus=pending_review`。
 - 站点明确返回失败：`status=failed`，`submissionStatus=rejected`。
 - 已点击 Submit，但在确认时间内没有可靠结果：保留 `status=filled`，同时记录 `submissionStatus=pending_review`，避免把一次点击误判为成功。
-- AI 请求异常或生成内容未通过验证：`status=generation_failed`，队列状态 pill 显示 `AI failed`。
+- AI 请求重试耗尽或生成内容仍未通过验证：`status=generation_failed`，队列状态 pill 显示 `AI failed`。
 
 自动队列从当前项目的下一个 `pending` 目标开始，使用当前标签页依次打开目标。当前实现为每个目标设置 180 秒页面就绪超时；页面超时、未检测到可用评论 Provider、评论不可用、需要登录、归档页或质量不合格等不适合自动处理的情况会记录为 `skipped`。
 
@@ -260,3 +260,12 @@ pnpm test
 - Repository-oriented IndexedDB storage
 - Replaceable AI provider interface
 - Runtime message router scaffold
+
+## AI 评论生成与长度问题（2026-10）
+
+- 生成 Prompt 仅使用网页 Title、Meta Description（可缺失）、语言、项目资料和少量历史评论；不把文章正文或标题列表发送给 OpenRouter。
+- 标题最多 200 字符，Meta Description 最多 400 字符；项目描述和历史评论也进行长度限制。
+- OpenRouter 输出预算最多尝试三次：600、1200、2000 tokens。检查 `finish_reason=length`，不把被截断的评论当作成功结果。
+- 输出截断、上下文限制、评论格式验证失败、限流及超时允许有限重试；限流重试包含短暂等待。非可恢复错误立即返回。
+- 自动化只有在重试后依然失败才记录 `generation_failed`，以避免单次截断直接跳过外链目标。
+- 注意：长度预算是输出预算，不等于输入上下文限制。模型的真实推理 Token 消耗依供应商而异。
