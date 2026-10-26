@@ -5,16 +5,14 @@ export const COMMENT_SYSTEM_PROMPT = `You write short, natural blog comments for
 export function buildCommentPrompt(input: GenerateCommentInput): string {
   return [
     'ARTICLE',
-    `Title: ${input.article.title}`,
-    `Summary: ${input.article.summary}`,
-    `Language: ${input.article.language || 'detect from article text'}`,
-    `Headings: ${input.article.headings.slice(0, 6).join(' | ')}`,
-    `First paragraphs: ${input.article.paragraphs.slice(0, 3).join('\n')}`,
+    `Title: ${input.article.title.slice(0, 200)}`,
+    `Description: ${input.article.summary.slice(0, 400) || '(not available)'}`,
+    `Language: ${input.article.language || 'detect from the title and description'}`,
     '',
     'PROJECT',
-    `Brand: ${input.project.brand}`,
+    `Brand: ${input.project.brand.slice(0, 100)}`,
     `Website: ${input.project.website}`,
-    `Description: ${input.project.description}`,
+    `Description: ${input.project.description.slice(0, 400)}`,
     '',
     'COMMENT SETTINGS',
     `Mode: ${input.mode}`,
@@ -24,7 +22,8 @@ export function buildCommentPrompt(input: GenerateCommentInput): string {
     htmlLinkRule(input.project.website),
     '',
     'QUALITY RULES',
-    '- Mention one concrete detail from the article.',
+    '- Write a natural, topic-relevant comment using only the title and description.',
+    '- Do not invent details or claim to have read the full article.',
     ...lengthRules(input.article.language),
     '- Do not sound promotional.',
     '- Do not claim personal experience unless the article supports it.',
@@ -33,7 +32,7 @@ export function buildCommentPrompt(input: GenerateCommentInput): string {
     '- Do not include markdown fences or explanations.',
     '',
     'AVOID DUPLICATES',
-    input.previousComments?.slice(0, 5).join('\n---\n') || 'No previous generated comments.'
+    input.previousComments?.slice(0, 3).map((comment) => comment.slice(0, 220)).join('\n---\n') || 'No previous generated comments.'
   ].join('\n');
 }
 
@@ -50,13 +49,13 @@ function htmlLinkRule(website: string): string {
 function lengthRules(language: string): string[] {
   if (isCjkLanguage(language)) {
     return [
-      '- Write 40–120 visible CJK characters, excluding HTML markup.',
+      '- Write 40–100 visible CJK characters, excluding HTML markup.',
       '- Use 2–3 natural sentences.'
     ];
   }
 
   return [
-    '- Write 25–70 words, excluding HTML markup and the target URL.',
+    '- Write 25–55 words, excluding HTML markup and the target URL.',
     '- Use 2–3 natural sentences.'
   ];
 }
