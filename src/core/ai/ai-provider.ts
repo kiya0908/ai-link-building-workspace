@@ -15,6 +15,8 @@ export interface GenerateCommentInput {
   style: CommentStyle;
   mode: CommentMode;
   previousComments?: string[];
+  /** Maximum completion token budget for this attempt. */
+  outputTokenLimit?: number;
 }
 
 export interface GeneratedCommentResult {
