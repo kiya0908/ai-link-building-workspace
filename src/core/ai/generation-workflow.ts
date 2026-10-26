@@ -21,8 +21,9 @@ export async function generateReviewedComment(
       lastError = new AIProviderError(`Comment validation failed: ${validation.issues.join(', ')} (attempt ${attempt + 1}/3)`, 'validation_failed');
     } catch (error) {
       if (!(error instanceof AIProviderError)) throw error;
-      if (!['output_truncated', 'context_length_exceeded', 'validation_failed'].includes(error.code)) throw error;
-      lastError = error;
+      if (!['output_truncated', 'context_length_exceeded', 'validation_failed', 'rate_limited', 'timeout'].includes(error.code)) throw error;
+      if (error.code === 'rate_limited') await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 2000));
+      lastError = new AIProviderError(`${error.message} (attempt ${attempt + 1}/${budgets.length})`, error.code);
     }
     // Trim secondary context for retries without losing metadata and target URL.
     input = { ...input, previousComments: [], article: { ...input.article, summary: input.article.summary.slice(0, attempt === 0 ? 250 : 120) } };
