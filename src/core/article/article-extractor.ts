@@ -1,4 +1,3 @@
-import { Readability } from '@mozilla/readability';
 import type { ArticleAnalysis } from '@/core/types/article';
 
 export interface ExtractedArticle extends ArticleAnalysis {
@@ -6,28 +5,19 @@ export interface ExtractedArticle extends ArticleAnalysis {
 }
 
 export function extractArticle(document: Document): ExtractedArticle {
-  const clone = document.cloneNode(true) as Document;
-  const readable = new Readability(clone).parse();
-  const paragraphs = getFirstParagraphs(document);
+  const title = (document.title.trim() || document.querySelector('meta[property="og:title"]')?.getAttribute('content') || document.querySelector('h1')?.textContent || '').trim().slice(0, 200);
+  const description = (document.querySelector('meta[name="description"]')?.getAttribute('content') || document.querySelector('meta[property="og:description"]')?.getAttribute('content') || '').trim().slice(0, 400);
+  // Preserve the existing article shape, but do not collect article body for AI prompts.
+  const paragraphs: string[] = [];
 
   return {
-    title: readable?.title ?? document.title,
-    summary: readable?.excerpt ?? paragraphs.slice(0, 2).join(' '),
-    headings: Array.from(document.querySelectorAll('h1, h2'))
-      .map((heading) => heading.textContent?.trim() ?? '')
-      .filter(Boolean)
-      .slice(0, 8),
+    title,
+    summary: description,
+    headings: [],
     paragraphs,
     firstParagraphs: paragraphs,
     language: detectLanguage(document)
   };
-}
-
-function getFirstParagraphs(document: Document): string[] {
-  return Array.from(document.querySelectorAll('article p, main p, p'))
-    .map((paragraph) => paragraph.textContent?.trim() ?? '')
-    .filter((text) => text.length > 40)
-    .slice(0, 5);
 }
 
 function detectLanguage(document: Document): string {
@@ -43,8 +33,9 @@ function detectLanguage(document: Document): string {
   }
 
   // Fallback: content-based language detection
-  const text = document.body?.textContent ?? '';
-  return detectLanguageByContent(text);
+  const title = document.title;
+  const description = document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '';
+  return detectLanguageByContent(`${title} ${description}`);
 }
 
 function detectLanguageByContent(text: string): string {
