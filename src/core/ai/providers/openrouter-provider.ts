@@ -16,6 +16,7 @@ export interface OpenRouterConfig {
 
 interface OpenRouterResponse {
   choices?: Array<{
+    finish_reason?: string;
     message?: {
       content?: string;
     };
@@ -40,6 +41,10 @@ export class OpenRouterProvider implements AIProvider {
 
     const response = await this.requestWithTimeout(input);
     const rawComment = response.choices?.[0]?.message?.content;
+
+    if (response.choices?.[0]?.finish_reason === 'length') {
+      throw new AIProviderError(`OpenRouter output truncated (finish_reason=length, completion_tokens=${response.usage?.completion_tokens ?? 'unknown'}).`, 'output_truncated');
+    }
 
     if (!rawComment) {
       throw new AIProviderError('OpenRouter returned an empty comment.', 'invalid_response');
@@ -73,18 +78,18 @@ export class OpenRouterProvider implements AIProvider {
             { role: 'user', content: buildCommentPrompt(input) }
           ],
           temperature: 0.7,
-          max_tokens: 220
+          max_tokens: input.outputTokenLimit ?? 600
         })
       });
 
+      const payload = (await response.json()) as OpenRouterResponse;
       if (response.status === 429) {
         throw new AIProviderError('OpenRouter rate limit reached. Try again later.', 'rate_limited');
       }
 
-      const payload = (await response.json()) as OpenRouterResponse;
-
       if (!response.ok) {
-        throw new AIProviderError(payload.error?.message ?? 'OpenRouter request failed.', 'request_failed');
+        const message = payload.error?.message ?? 'OpenRouter request failed.';
+        throw new AIProviderError(message, /context.{0,30}(length|window)|too many tokens|maximum context|token limit/i.test(message) ? 'context_length_exceeded' : 'request_failed');
       }
 
       return payload;
