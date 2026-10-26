@@ -37,7 +37,8 @@ export function evaluatePageQuality(
     issues.push('archive_page');
   }
 
-  if (article.paragraphs.join(' ').length < 240) {
+  // AI uses metadata only; do not reject sites because their body was not extracted.
+  if (!article.title.trim()) {
     issues.push('low_quality');
   }
 
